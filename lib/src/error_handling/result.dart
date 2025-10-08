@@ -1,0 +1,111 @@
+import 'package:maxi_framework/maxi_framework.dart';
+
+abstract interface class Result<T> {
+  bool get itsCorrect;
+  T get content;
+  ErrorData get error;
+
+  Result<R> cast<R>();
+}
+
+class PositiveResult<T> implements Result<T> {
+  @override
+  bool get itsCorrect => true;
+
+  @override
+  final T content;
+
+  const PositiveResult({required this.content});
+
+  @override
+  ErrorData get error => ControlledFailure(
+    errorCode: ErrorCode.implementationFailure,
+    message: const FixedOration(message: 'This result is valid, wrong function!'),
+  );
+
+  @override
+  String toString() => 'Result: $content';
+
+  @override
+  Result<R> cast<R>() {
+    if (content is R) {
+      return PositiveResult(content: content as R);
+    } else {
+      return NegativeResult(
+        error: ControlledFailure(
+          errorCode: ErrorCode.wrongType,
+          message: FlexibleOration(message: 'The result was attempted to be converted to %1, but the content is %2 and is incompatible', textParts: [R, T]),
+        ),
+      );
+    }
+  }
+}
+
+const positiveVoidResult = PositiveResult<void>(content: null);
+
+class NegativeResult<T> implements Result<T> {
+  @override
+  bool get itsCorrect => false;
+
+  @override
+  final ErrorData error;
+
+  const NegativeResult({required this.error});
+
+  @override
+  T get content => throw error;
+
+  @override
+  NegativeResult<R> cast<R>() => NegativeResult<R>(error: error);
+
+  @override
+  String toString() => 'Error: ${error.message}';
+}
+
+class CancelationResult<T> implements Result<T> {
+  @override
+  bool get itsCorrect => false;
+
+  final StackTrace cancelationStackTrace;
+  final DateTime whenWasIt;
+
+  CancelationResult({required this.cancelationStackTrace}) : whenWasIt = DateTime.now();
+
+  @override
+  T get content => throw error;
+
+  @override
+  ErrorData get error => ControlledFailure(
+    errorCode: ErrorCode.functionalityCancelled,
+    message: const FixedOration(message: 'The feature has been canceled'),
+    whenWasIt: whenWasIt,
+  );
+
+  @override
+  CancelationResult<R> cast<R>() => CancelationResult<R>(cancelationStackTrace: cancelationStackTrace);
+
+  @override
+  String toString() => '<Cancellation error>';
+}
+
+class ExceptionResult<T> implements Result<T> {
+  final dynamic exception;
+  final StackTrace stackTrace;
+
+  @override
+  bool get itsCorrect => false;
+
+  @override
+  T get content => throw error;
+
+  @override
+  final ErrorData error;
+
+  ExceptionResult({required this.exception, required this.stackTrace, Oration message = const FixedOration(message: 'An internal error occurred while executing a feature')})
+    : error = ControlledFailure(errorCode: ErrorCode.exception, message: message);
+  @override
+  Result<R> cast<R>() => ExceptionResult<R>(exception: exception, stackTrace: stackTrace, message: error.message);
+
+  @override
+  String toString() => '<!> Exception: $exception';
+}

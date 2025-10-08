@@ -1,0 +1,1 @@
+export 'essential_singletons/application_manager.dart';
