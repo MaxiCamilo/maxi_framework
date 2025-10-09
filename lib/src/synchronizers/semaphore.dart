@@ -9,12 +9,14 @@ class Semaphore with DisposableMixin, InitializableMixin {
 
   bool get isBusy => _isBusy;
 
+  bool get onlyHasOne => _isBusy && _queue.isEmpty;
+
   @override
   Result<void> performInitialization() {
     _queue = [];
     _isBusy = false;
 
-    return positiveVoidResult;
+    return voidResult;
   }
 
   Future<T> execute<T>(FutureOr<T> Function() function) async {
@@ -43,88 +45,28 @@ class Semaphore with DisposableMixin, InitializableMixin {
     }
   }
 
-  Future<Result<T>> executeWithParentController<T>({
-    required FutureOr<Result<T>> Function(ParentController heart) function,
-    ParentController? parentController,
-    bool disposeWhenEnd = true,
-    void Function(ParentController)? onCalled,
-  }) {
-    return execute(() async {
-      final heart = parentController ?? ParentController();
+  Future<Result<T>> executeAsyncResult<T>(AsyncResult<T> executor) async {
+    if (itWasDiscarded) {
+      return CancelationResult(cancelationStackTrace: StackTrace.current);
+    }
 
-      if (heart.itWasDiscarded) {
-        return CancelationResult(cancelationStackTrace: StackTrace.current);
-      }
+    final whenDispose = onDispose.whenComplete(() => executor.dispose());
+    final result = await execute(() => executor.waitResult());
 
-      try {
-        if (onCalled != null) {
-          onCalled(heart);
-        }
-        return await function(heart);
-      } finally {
-        if (disposeWhenEnd || parentController == null) {
-          heart.dispose();
-        }
-      }
-    });
+    whenDispose.ignore();
+    return result;
   }
 
-  FuturePackWaiter<T> executeInteractiveFunctionality<I, T>({required InteractiveFunctionality<I, T> functionality, void Function(I x)? onItem}) {
-    return executeCancelableFunction<T>(function: functionality.buildExecutor().execute(onItem: onItem));
-  }
+  Future<Result<T>> executeInteractivecResult<I, T>({required InteractiveResult<I, T> function, void Function(I)? onItem}) async {
+    if (itWasDiscarded) {
+      return CancelationResult(cancelationStackTrace: StackTrace.current);
+    }
 
-  FuturePackWaiter<T> executeCancelableFunction<T>({required AsyncResult<T> function, Result? Function()? onCancel}) {
-    initialize();
-    final whenDisponse = <Future>[];
+    final whenDispose = onDispose.whenComplete(() => function.dispose());
+    final result = await execute(() => function.waitResult(onItem: onItem));
 
-    late final FuturePackWaiter<T> waiter;
-
-    waiter = FuturePackWaiter<T>(
-      onCancel: onCancel,
-      function: () async {
-        late final Result<T> content;
-
-        await _checkIfBusy();
-
-        if (itWasDiscarded || waiter.itWasDiscarded) {
-          return CancelationResult(cancelationStackTrace: StackTrace.current);
-        }
-
-        try {
-          _isBusy = true;
-          content = await function.waitResult();
-        } finally {
-          if (_queue.isNotEmpty) {
-            final next = _queue.removeAt(0);
-            next.complete();
-          } else {
-            _isBusy = false;
-          }
-        }
-        if (whenDisponse.isEmpty) {
-          await Future.delayed(Duration.zero);
-        }
-        whenDisponse.lambda((x) => x.ignore());
-        whenDisponse.clear();
-
-        return content;
-      },
-    );
-
-    whenDisponse.add(
-      onDispose.whenComplete(() {
-        waiter.dispose();
-        function.dispose();
-      }),
-    );
-
-    whenDisponse.add(
-      waiter.onDispose.whenComplete(() {
-        function.dispose();
-      }),
-    );
-
-    return waiter;
+    whenDispose.ignore();
+    return result;
   }
 
   @override

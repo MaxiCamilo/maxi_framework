@@ -10,6 +10,49 @@ class ParentController with DisposableMixin, InitializableMixin {
   late List<StreamSubscription> _unifiedStreamSubscriptions;
   late List<(Timer, Completer<bool>)> _unifiedTimers;
 
+  //LOCAL ZONE MANAGER
+
+  static const kZoneHeart = #maxiZoneHeart;
+  static bool get hasZoneHeart => Zone.current[kZoneHeart] != null;
+  static bool get isZoneHeartCanceled => Zone.current[kZoneHeart] != null && (Zone.current[kZoneHeart] as Disposable).itWasDiscarded;
+
+  static ParentController get zoneHeart {
+    final item = Zone.current[kZoneHeart];
+    if (item == null) {
+      throw NegativeResult(
+        error: ControlledFailure(
+          errorCode: ErrorCode.implementationFailure,
+          message: FixedOration(message: 'An object handler was not defined in this zone'),
+        ),
+      );
+    }
+
+    return item as ParentController;
+  }
+
+  //////
+
+  /////ROOT ZONE MANAGER
+
+  static const kRootZoneHeart = #kRootZoneHeart;
+  static bool get hasRootZoneHeart => Zone.current[kRootZoneHeart] != null;
+
+  static ParentController get rootZoneHeart {
+    final item = Zone.current[kRootZoneHeart];
+    if (item == null) {
+      throw NegativeResult(
+        error: ControlledFailure(
+          errorCode: ErrorCode.implementationFailure,
+          message: FixedOration(message: 'An object handler was not defined in root zone'),
+        ),
+      );
+    }
+
+    return item as ParentController;
+  }
+
+  //////
+
   T joinDynamicObject<T>(T item) {
     if (itWasDiscarded) {
       try {
@@ -81,7 +124,7 @@ class ParentController with DisposableMixin, InitializableMixin {
     initialize();
     final completer = Completer<Result<T>>();
 
-    final executor = function().then((x) => completer.complete(PositiveResult(content: x))).onError((ex, st) => ExceptionResult(exception: ex, stackTrace: st));
+    final executor = function().then((x) => completer.complete(ResultValue(content: x))).onError((ex, st) => ExceptionResult(exception: ex, stackTrace: st));
     final done = onDispose.whenComplete(() {
       executor.ignore();
       completer.complete(CancelationResult(cancelationStackTrace: StackTrace.current));
@@ -140,6 +183,21 @@ class ParentController with DisposableMixin, InitializableMixin {
     return completer.future;
   }
 
+  Future<Result<T>> waitAsyncResult<T>(AsyncResult<T> asyncResult) async {
+    if (itWasDiscarded) {
+      return CancelationResult<T>(cancelationStackTrace: StackTrace.current);
+    }
+
+    initialize();
+
+    final whenDispose = onDispose.whenComplete(asyncResult.dispose);
+
+    final result = asyncResult.waitResult();
+
+    whenDispose.ignore();
+    return result;
+  }
+
   @override
   Result<void> performInitialization() {
     _dynamicObjects = [];
@@ -148,7 +206,7 @@ class ParentController with DisposableMixin, InitializableMixin {
     _unifiedStreamSubscriptions = <StreamSubscription>[];
     _unifiedTimers = <(Timer, Completer<bool>)>[];
 
-    return positiveVoidResult;
+    return voidResult;
   }
 
   @override

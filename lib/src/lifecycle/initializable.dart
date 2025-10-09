@@ -20,7 +20,7 @@ mixin InitializableMixin on DisposableMixin implements Initializable {
     resurrectObject();
 
     if (_isInitialized) {
-      return positiveVoidResult;
+      return voidResult;
     }
 
     final result = performInitialization();

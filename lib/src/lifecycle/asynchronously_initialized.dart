@@ -26,7 +26,7 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
     _semaphore ??= Semaphore();
     return _semaphore!.execute(() async {
       if (_isInitialized) {
-        return positiveVoidResult;
+        return voidResult;
       }
 
       try {

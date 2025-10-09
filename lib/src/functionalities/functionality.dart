@@ -6,19 +6,21 @@ import 'package:meta/meta.dart';
 abstract interface class Functionality<T> {
   AsyncResult<T> execute();
 
+  InteractiveResult<I, T> interactiveExecute<I>();
+
   Future<Result<T>> executeAsFuture();
 }
 
 mixin FunctionalityMixin<T> implements Functionality<T> {
   Oration get functionalityName => FixedOration(message: runtimeType.toString());
 
-  FutureOr<Result<T>> runFuncionality(FutureControllerContext<T> context);
+  FutureOr<Result<T>> runFuncionality();
 
   @protected
   void onError(Result<T> result) {}
 
   @protected
-  void onPositiveResult(Result<T> result) {}
+  void onResultValue(Result<T> result) {}
 
   @protected
   void onFinish(Result<T> result) {}
@@ -29,20 +31,36 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   @protected
   void onCancel() {}
 
+  @protected
+  void sendText(Oration text) => InteractiveResult.sendItem(text);
+
+  @protected
+  ParentController get heart => ParentController.zoneHeart;
+
+  @protected
+  bool get isCanceled => heart.itWasDiscarded;
+
   @override
   Future<Result<T>> executeAsFuture() => execute().waitResult();
 
+  TextableResult<T> textableExecutor() => interactiveExecute<Oration>();
+
   @override
-  AsyncResult<T> execute() {
-    return FutureController<T>(
+  InteractiveResult<I, T> interactiveExecute<I>() {
+    return InteractiveExecutor<I, T>(function: execute());
+  }
+
+  @override
+  AsyncExecutor<T> execute() {
+    return AsyncExecutor<T>(
       onCancel: onCancel,
-      function: (context) async {
+      function: () async {
         late Result<T> result;
         try {
-          result = await runFuncionality(context);
-          if (!context.heart.itWasDiscarded) {
+          result = await runFuncionality();
+          if (result is! CancelationResult) {
             if (result.itsCorrect) {
-              onPositiveResult(result);
+              onResultValue(result);
             } else {
               onError(result);
             }

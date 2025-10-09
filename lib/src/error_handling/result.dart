@@ -8,14 +8,14 @@ abstract interface class Result<T> {
   Result<R> cast<R>();
 }
 
-class PositiveResult<T> implements Result<T> {
+class ResultValue<T> implements Result<T> {
   @override
   bool get itsCorrect => true;
 
   @override
   final T content;
 
-  const PositiveResult({required this.content});
+  const ResultValue({required this.content});
 
   @override
   ErrorData get error => ControlledFailure(
@@ -29,7 +29,7 @@ class PositiveResult<T> implements Result<T> {
   @override
   Result<R> cast<R>() {
     if (content is R) {
-      return PositiveResult(content: content as R);
+      return ResultValue(content: content as R);
     } else {
       return NegativeResult(
         error: ControlledFailure(
@@ -41,7 +41,7 @@ class PositiveResult<T> implements Result<T> {
   }
 }
 
-const positiveVoidResult = PositiveResult<void>(content: null);
+const voidResult = ResultValue<void>(content: null);
 
 class NegativeResult<T> implements Result<T> {
   @override
@@ -51,6 +51,10 @@ class NegativeResult<T> implements Result<T> {
   final ErrorData error;
 
   const NegativeResult({required this.error});
+
+  factory NegativeResult.controller({required ErrorCode code, required Oration message}) => NegativeResult(
+    error: ControlledFailure(errorCode: code, message: message),
+  );
 
   @override
   T get content => throw error;

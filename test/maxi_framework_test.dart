@@ -13,19 +13,20 @@ class SyncFunctionality with FunctionalityMixin<String> {
   const SyncFunctionality({required this.name, required this.age});
 
   @override
-  Future<Result<String>> runFuncionality(FutureControllerContext<String> context) async {
+  Future<Result<String>> runFuncionality() async {
     print('Hi $name!');
-    await context.heart.delay(duration: const Duration(seconds: 30));
+
+    await heart.delay(duration: const Duration(seconds: 30));
+
+    if (isCanceled) {
+      return CancelationResult(cancelationStackTrace: StackTrace.current);
+    }
 
     print('You are $age years old!');
 
-    if (context.checkCancelarion()) {
-      return context.returnCancelation();
-    }
+    await heart.delay(duration: const Duration(seconds: 30));
 
-    await context.heart.delay(duration: const Duration(seconds: 30));
-
-    return context.ok('Byebye');
+    return ResultValue(content: 'jejeje');
     /*
     return context.error(
       code: ErrorCode.invalidProperty,
@@ -39,7 +40,7 @@ class SyncFunctionality with FunctionalityMixin<String> {
   }
 }
 
-class AsyncFunctionality with TextableFunctionalityMixin<String> {
+class AsyncFunctionality with FunctionalityMixin<String> {
   final String name;
   final int age;
 
@@ -51,29 +52,31 @@ class AsyncFunctionality with TextableFunctionalityMixin<String> {
   }
 
   @override
-  Future<Result<String>> runFuncionality({required void Function(Oration x) sendItem, required FutureControllerContext<String> context, required ParentController heart}) async {
+  Future<Result<String>> runFuncionality() async {
     print('chanchan');
-    sendItem(FlexibleOration(message: 'Hi %1!', textParts: [name]));
+    sendText(FlexibleOration(message: 'Hi %1!', textParts: [name]));
+
+    await heart.delay(duration: const Duration(seconds: 7));
+
+    if (isCanceled) {
+      return CancelationResult(cancelationStackTrace: StackTrace.current);
+    }
+
+    sendText(FlexibleOration(message: 'You are %1 years old!', textParts: [name]));
+
+    if (isCanceled) {
+      return CancelationResult(cancelationStackTrace: StackTrace.current);
+    }
 
     await heart.delay(duration: const Duration(seconds: 5));
 
-    if (context.checkCancelarion()) {
-      return context.returnCancelation();
-    }
-
-    sendItem(FlexibleOration(message: 'You are %1 years old!', textParts: [name]));
-
-    if (context.checkCancelarion()) {
-      return context.returnCancelation();
-    }
-
-    await heart.delay(duration: const Duration(seconds: 5));
-
-    return context.ok('Byebye');
+    return ResultValue(content: 'byebye');
   }
 }
 
 void main() {
+  
+
   group('A group of tests', () {
     setUp(() {
       // Additional setup goes here.
@@ -98,13 +101,13 @@ void main() {
 
     test('Test Textables', () async {
       final func = const AsyncFunctionality(name: 'Maxitito', age: 30);
-      final executor = func.buildExecutor();
-
+      final executor = func.textableExecutor();
+      /*
       Future.delayed(const Duration(seconds: 5)).whenComplete(() {
         executor.dispose();
-      });
+      });*/
 
-      final result = await executor.executeAsFuture(onItem: (x) => print('Event: $x'));
+      final result = await executor.waitResult(onItem: (x) => print('Event: $x'));
 
       if (result.itsCorrect) {
         print('Result: ${result.content}');
@@ -133,7 +136,7 @@ void main() {
       final semaphore = Semaphore();
 
       futures.add(semaphore.execute(first));
-      futures.add(semaphore.execute(() => second('Maxi')));
+      futures.add(semaphore.execute(() => second('Maxi'))); /*
       futures.add(
         semaphore
             .executeInteractiveFunctionality(
@@ -141,16 +144,17 @@ void main() {
               onItem: (x) => print('Event: $x'),
             )
             .waitResult(),
-      );
+      );*/
       futures.add(semaphore.execute(() => second('Seba')));
+      /*
       futures.add(
         semaphore.executeWithParentController(
           function: (heart) async {
             await heart.delay(duration: const Duration(seconds: 2));
-            return PositiveResult(content: 'yey!');
+            return ResultValue(content: 'yey!');
           },
         ),
-      );
+      );*/
 
       final result = await Future.wait(futures);
       print(result);

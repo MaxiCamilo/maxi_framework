@@ -1,2 +1,2 @@
 export 'functionalities/functionality.dart';
-export 'functionalities/interactive_functionality.dart';
+export 'synchronizers/interactive_async_executor.dart';
