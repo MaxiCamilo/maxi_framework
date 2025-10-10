@@ -30,6 +30,17 @@ class ParentController with DisposableMixin, InitializableMixin {
     return item as ParentController;
   }
 
+  static ParentController? get tryGetZoneHeart {
+    final item = Zone.current[kZoneHeart];
+    if (item == null) {
+      return null;
+    }
+
+    return item as ParentController;
+  }
+
+  
+
   //////
 
   /////ROOT ZONE MANAGER

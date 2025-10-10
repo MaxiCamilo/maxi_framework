@@ -82,14 +82,14 @@ class FileReference implements DirectoryReference {
 }
 
 abstract interface class FileOperator {
-  AsyncResult<bool> exists();
-  AsyncResult<void> create();
-  AsyncResult<FileOperator> copy({required FolderReference destination});
-  AsyncResult<void> delete();
-  AsyncResult<int> obtainSize();
-  AsyncResult<List<int>> read({int? maxSize});
-  AsyncResult<List<int>> readPartially({required int from, required int amount, bool checkSize = true});
-  AsyncResult<String> readText({Encoding? encoder, int? maxSize});
-  AsyncResult<void> white({required List<int> content, bool secured = false});
-  AsyncResult<void> writeText({required String content, Encoding? encoder, bool secured = false});
+  Future<Result<bool>> exists();
+  Future<Result<void>> create();
+  Future<Result<FileOperator>> copy({required FolderReference destination});
+  Future<Result<void>> delete();
+  Future<Result<int>> obtainSize();
+  Future<Result<List<int>>> read({int? maxSize});
+  Future<Result<List<int>>> readPartially({required int from, required int amount});
+  Future<Result<String>> readText({Encoding? encoder, int? maxSize});
+  Future<Result<void>> white({required List<int> content});
+  Future<Result<void>> writeText({required String content, Encoding? encoder});
 }

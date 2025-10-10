@@ -2,6 +2,7 @@ import 'package:maxi_framework/maxi_framework.dart';
 
 abstract interface class Result<T> {
   bool get itsCorrect;
+  bool get itsFailure;
   T get content;
   ErrorData get error;
 
@@ -11,6 +12,8 @@ abstract interface class Result<T> {
 class ResultValue<T> implements Result<T> {
   @override
   bool get itsCorrect => true;
+  @override
+  bool get itsFailure => false;
 
   @override
   final T content;
@@ -48,6 +51,9 @@ class NegativeResult<T> implements Result<T> {
   bool get itsCorrect => false;
 
   @override
+  bool get itsFailure => true;
+
+  @override
   final ErrorData error;
 
   const NegativeResult({required this.error});
@@ -69,6 +75,9 @@ class NegativeResult<T> implements Result<T> {
 class CancelationResult<T> implements Result<T> {
   @override
   bool get itsCorrect => false;
+
+  @override
+  bool get itsFailure => true;
 
   final StackTrace cancelationStackTrace;
   final DateTime whenWasIt;
@@ -98,6 +107,9 @@ class ExceptionResult<T> implements Result<T> {
 
   @override
   bool get itsCorrect => false;
+
+  @override
+  bool get itsFailure => true;
 
   @override
   T get content => throw error;

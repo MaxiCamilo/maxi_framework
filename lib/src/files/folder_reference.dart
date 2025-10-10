@@ -53,15 +53,30 @@ class FolderReference implements DirectoryReference {
       content: FolderReference(isLocal: isLocal, name: name, router: folders),
     );
   }
+
+  static Future<Result<FolderReference>> fromFile({required FileReference file}) async {
+    final parts = file.router.replaceAll('\\', '/').split('/');
+    if (parts.isEmpty) {
+      return NegativeResult.controller(
+        code: ErrorCode.invalidValue,
+        message: FixedOration(message: 'The file path cannot be processed as a folder; it\'s empty'),
+      );
+    }
+
+    final name = parts.removeLast();
+    return ResultValue(
+      content: FolderReference(isLocal: file.isLocal, name: name, router: parts.join('/')),
+    );
+  }
 }
 
 abstract interface class FolderOperator {
-  AsyncResult<bool> exists();
-  AsyncResult<void> create();
-  AsyncResult<FolderReference> copy({required FolderReference destination});
-  AsyncResult<void> delete();
-  AsyncResult<bool> itHasContent();
-  AsyncResult<int> obtainSize();
+  Future<Result<bool>> exists();
+  Future<Result<void>> create();
+  Future<Result<FolderReference>> copy({required FolderReference destination});
+  Future<Result<void>> delete();
+  Future<Result<bool>> itHasContent();
+  Future<Result<int>> obtainSize();
   Stream<FileReference> obtainFiles();
   Stream<FolderOperator> obtainFolders();
 }
