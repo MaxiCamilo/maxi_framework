@@ -14,7 +14,7 @@ abstract interface class ApplicationManager {
     return _singleton!;
   }
 
-  static Future<void> defineSingleton(ApplicationManager appManager) async {
+  static Future<Result<void>> defineSingleton(ApplicationManager appManager) async {
     if (_singleton != null) {
       if (_singleton is Disposable) {
         (_singleton as Disposable).dispose();
@@ -24,19 +24,16 @@ abstract interface class ApplicationManager {
 
     if (appManager is Initializable) {
       final result = (appManager as Initializable).initialize();
-      if (!result.itsCorrect) {
-        throw result.error;
-      }
+      if (!result.itsCorrect) return result.cast();
     }
 
     if (appManager is AsynchronouslyInitialized) {
       final result = await (appManager as AsynchronouslyInitialized).initialize();
-      if (!result.itsCorrect) {
-        throw result.error;
-      }
+      if (!result.itsCorrect) return result.cast();
     }
 
     _singleton = appManager;
+    return voidResult;
   }
 
   bool get isDebug;
@@ -55,4 +52,5 @@ abstract interface class ApplicationManager {
   bool get isMovil;
 
   FileOperator buildFileOperator(FileReference file);
+  FolderOperator buildFolderOperator(FolderReference folder);
 }

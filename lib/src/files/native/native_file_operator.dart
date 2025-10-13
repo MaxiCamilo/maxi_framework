@@ -4,7 +4,6 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:maxi_framework/maxi_framework.dart';
-import 'package:maxi_framework/src/extensions/result_extensions.dart';
 
 class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOperator {
   final FileReference fileReference;

@@ -78,5 +78,5 @@ abstract interface class FolderOperator {
   Future<Result<bool>> itHasContent();
   Future<Result<int>> obtainSize();
   Stream<FileReference> obtainFiles();
-  Stream<FolderOperator> obtainFolders();
+  Stream<FolderReference> obtainFolders();
 }

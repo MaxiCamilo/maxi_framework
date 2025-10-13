@@ -36,6 +36,10 @@ class Semaphore with DisposableMixin, InitializableMixin {
     }
   }
 
+  Future<T> executeInteractive<I, T>({required FutureOr<T> Function() function, required void Function(I) onItem}) {
+    return execute(() => InteractiveExecutor.execute<I, T>(function: function, onItem: onItem));
+  }
+
   Future<void> _checkIfBusy() async {
     await Future.delayed(Duration.zero);
     if (_isBusy) {
@@ -52,18 +56,6 @@ class Semaphore with DisposableMixin, InitializableMixin {
 
     final whenDispose = onDispose.whenComplete(() => executor.dispose());
     final result = await execute(() => executor.waitResult());
-
-    whenDispose.ignore();
-    return result;
-  }
-
-  Future<Result<T>> executeInteractivecResult<I, T>({required InteractiveResult<I, T> function, void Function(I)? onItem}) async {
-    if (itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
-    }
-
-    final whenDispose = onDispose.whenComplete(() => function.dispose());
-    final result = await execute(() => function.waitResult(onItem: onItem));
 
     whenDispose.ignore();
     return result;

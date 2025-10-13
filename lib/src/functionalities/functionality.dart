@@ -4,16 +4,16 @@ import 'package:maxi_framework/maxi_framework.dart';
 import 'package:meta/meta.dart';
 
 abstract interface class Functionality<T> {
-  AsyncResult<T> execute();
+  Future<Result<T>> execute();
+  AsyncExecutor<T> separateExecution();
 
-  InteractiveResult<I, T> interactiveExecute<I>();
-
-  Future<Result<T>> executeAsFuture();
+  AsyncExecutor<T> interactiveExecution<I>({required void Function(I) onItem});
 }
 
 mixin FunctionalityMixin<T> implements Functionality<T> {
   Oration get functionalityName => FixedOration(message: runtimeType.toString());
 
+  @protected
   FutureOr<Result<T>> runFuncionality();
 
   @protected
@@ -32,56 +32,58 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   void onCancel() {}
 
   @protected
-  void sendText(Oration text) => InteractiveResult.sendItem(text);
+  bool sendText(Oration text) {
+    InteractiveExecutor.sendItem(text);
+    return !heart.itWasDiscarded;
+  }
 
   @protected
-  ParentController get heart => ParentController.zoneHeart;
+  LifeCoordinator get heart => LifeCoordinator.zoneHeart;
 
   @protected
   bool get isCanceled => heart.itWasDiscarded;
 
   @override
-  Future<Result<T>> executeAsFuture() => execute().waitResult();
+  Future<Result<T>> execute() async {
+    late Result<T> result;
+    try {
+      result = await runFuncionality();
+      if (result is CancelationResult) {
+        onCancel();
+      } else {
+        if (result.itsCorrect) {
+          onResultValue(result);
+        } else {
+          onError(result);
+        }
+      }
+    } catch (ex, st) {
+      result = ExceptionResult(
+        exception: ex,
+        stackTrace: st,
+        message: FlexibleOration(message: 'An internal error occurred in functionality %1', textParts: [functionalityName]),
+      );
 
-  TextableResult<T> textableExecutor() => interactiveExecute<Oration>();
+      final newResult = onException(ex, st);
+      if (newResult != null) {
+        result = newResult;
+      }
+    } finally {
+      onFinish(result);
+    }
 
-  @override
-  InteractiveResult<I, T> interactiveExecute<I>() {
-    return InteractiveExecutor<I, T>(function: execute());
+    return result;
   }
 
   @override
-  AsyncExecutor<T> execute() {
-    return AsyncExecutor<T>(
-      onCancel: onCancel,
-      function: () async {
-        late Result<T> result;
-        try {
-          result = await runFuncionality();
-          if (result is! CancelationResult) {
-            if (result.itsCorrect) {
-              onResultValue(result);
-            } else {
-              onError(result);
-            }
-          }
-        } catch (ex, st) {
-          result = ExceptionResult(
-            exception: ex,
-            stackTrace: st,
-            message: FlexibleOration(message: 'An internal error occurred in functionality %1', textParts: [functionalityName]),
-          );
+  AsyncExecutor<T> separateExecution() {
+    return AsyncExecutor(function: execute);
+  }
 
-          final newResult = onException(ex, st);
-          if (newResult != null) {
-            result = newResult;
-          }
-        } finally {
-          onFinish(result);
-        }
-
-        return result;
-      },
+  @override
+  AsyncExecutor<T> interactiveExecution<I>({required void Function(I x) onItem}) {
+    return AsyncExecutor(
+      function: () => InteractiveExecutor.execute<I, Result<T>>(function: execute, onItem: onItem),
     );
   }
 }

@@ -9,24 +9,24 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   final FutureOr<Result<T>> Function() _function;
   final void Function()? _onCancel;
   final Oration _exceptionMessage;
-  final void Function(ParentController)? _onHeartCreated;
+  final void Function(LifeCoordinator)? _onHeartCreated;
   final bool _connectToZone;
 
   bool _isActive = false;
   Semaphore? _semaphore;
-  ParentController? _actualHeart;
+  LifeCoordinator? _actualHeart;
 
   @override
   bool get isActive => _isActive;
 
-  AsyncExecutor({required FutureOr<Result<T>> Function() function, void Function()? onCancel, Oration? exceptionMessage, void Function(ParentController)? onHeartCreated, bool connectToZone = true})
+  AsyncExecutor({required FutureOr<Result<T>> Function() function, void Function()? onCancel, Oration? exceptionMessage, void Function(LifeCoordinator)? onHeartCreated, bool connectToZone = true})
     : _function = function,
       _onCancel = onCancel,
       _onHeartCreated = onHeartCreated,
       _exceptionMessage = exceptionMessage ?? _errorText,
       _connectToZone = connectToZone;
 
-  factory AsyncExecutor.function({required FutureOr<T> Function() function, void Function()? onCancel, Oration? exceptionMessage, void Function(ParentController)? onHeartCreated, bool connectToZone = true}) {
+  factory AsyncExecutor.function({required FutureOr<T> Function() function, void Function()? onCancel, Oration? exceptionMessage, void Function(LifeCoordinator)? onHeartCreated, bool connectToZone = true}) {
     return AsyncExecutor(
       function: () async => ResultValue(content: await function()),
       onCancel: onCancel,
@@ -51,13 +51,13 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
       return CancelationResult<T>(cancelationStackTrace: StackTrace.current);
     }
 
-    final heart = ParentController();
+    final heart = LifeCoordinator();
     _actualHeart = heart;
     final whenDispose = onDispose.whenComplete(() => heart.dispose());
 
     Future? whenRootDispose;
-    if (_connectToZone && ParentController.hasZoneHeart) {
-      whenRootDispose = ParentController.zoneHeart.onDispose.whenComplete(dispose);
+    if (_connectToZone && LifeCoordinator.hasZoneHeart) {
+      whenRootDispose = LifeCoordinator.zoneHeart.onDispose.whenComplete(dispose);
     }
 
     if (_onHeartCreated != null) {
@@ -65,7 +65,7 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     }
 
     final child = Zone.current.fork(
-      zoneValues: {ParentController.kZoneHeart: heart, ParentController.kRootZoneHeart: ParentController.hasRootZoneHeart ? ParentController.rootZoneHeart : heart, AsyncResult.kAsyncExecutor: this, ...zoneValues},
+      zoneValues: {LifeCoordinator.kZoneHeart: heart, LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart, AsyncResult.kAsyncExecutor: this, ...zoneValues},
     );
     final futureResult = child.run<Future<Result<T>>>(() async {
       try {

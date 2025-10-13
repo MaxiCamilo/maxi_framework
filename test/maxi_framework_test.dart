@@ -62,7 +62,7 @@ class AsyncFunctionality with FunctionalityMixin<String> {
       return CancelationResult(cancelationStackTrace: StackTrace.current);
     }
 
-    sendText(FlexibleOration(message: 'You are %1 years old!', textParts: [name]));
+    sendText(FlexibleOration(message: 'You are %1 years old!', textParts: [age]));
 
     if (isCanceled) {
       return CancelationResult(cancelationStackTrace: StackTrace.current);
@@ -75,8 +75,6 @@ class AsyncFunctionality with FunctionalityMixin<String> {
 }
 
 void main() {
-  
-
   group('A group of tests', () {
     setUp(() {
       // Additional setup goes here.
@@ -84,11 +82,11 @@ void main() {
 
     test('Test functionalities', () async {
       final func = const SyncFunctionality(name: 'Maxitito', age: 30);
-      final waiter = func.execute();
-
+      final waiter = func.separateExecution();
+      /*
       Future.delayed(const Duration(seconds: 5)).whenComplete(() {
         waiter.dispose();
-      });
+      });*/
 
       final result = await waiter.waitResult();
 
@@ -101,13 +99,13 @@ void main() {
 
     test('Test Textables', () async {
       final func = const AsyncFunctionality(name: 'Maxitito', age: 30);
-      final executor = func.textableExecutor();
+      final executor = func.interactiveExecution<Oration>(onItem: (x) => print('Event: $x'));
       /*
       Future.delayed(const Duration(seconds: 5)).whenComplete(() {
         executor.dispose();
       });*/
 
-      final result = await executor.waitResult(onItem: (x) => print('Event: $x'));
+      final result = await executor.waitResult();
 
       if (result.itsCorrect) {
         print('Result: ${result.content}');
@@ -115,8 +113,8 @@ void main() {
         print('Error!: ${result.error.message}');
       }
 
-      await Future.delayed(Duration.zero);
-      await Future.delayed(Duration.zero);
+      // await Future.delayed(Duration.zero);
+      //await Future.delayed(Duration.zero);
       print('chau!');
     });
 
@@ -148,7 +146,7 @@ void main() {
       futures.add(semaphore.execute(() => second('Seba')));
       /*
       futures.add(
-        semaphore.executeWithParentController(
+        semaphore.executeWithLifeCoordinator(
           function: (heart) async {
             await heart.delay(duration: const Duration(seconds: 2));
             return ResultValue(content: 'yey!');

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:maxi_framework/maxi_framework.dart';
 import 'package:path/path.dart' as p;
+import 'package:rxdart/transformers.dart';
 
 class NativeFolderOperator with AsynchronouslyInitializedMixin implements FolderOperator {
   final FolderReference folderReference;
@@ -121,44 +122,147 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   });
 
   @override
-  Future<Result<void>> create() {
-    // TODO: implement create
-    throw UnimplementedError();
+  Future<Result<void>> create() => encapsulatedFunction((heart) async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final isExists = await exists().connect();
+    if (isExists.itsFailure) return isExists.cast();
+    if (isExists.content) return voidResult;
+
+    return await volatileFuture(
+      error: (ex, st) => NegativeResult.controller(
+        code: ErrorCode.externalFault,
+        message: FlexibleOration(message: 'Failed to create a folder in %1, the system returned error %2', textParts: [nativeRoute, ex.toString()]),
+      ),
+      function: () async {
+        final folder = Directory(nativeRoute);
+        await folder.create(recursive: true);
+      },
+    );
+  });
+
+  @override
+  Future<Result<void>> delete() => encapsulatedFunction((heart) async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final isExists = await exists().connect();
+    if (isExists.itsFailure) return isExists.cast();
+    if (!isExists.content) return voidResult;
+
+    return await volatileFuture(
+      error: (ex, st) => NegativeResult.controller(
+        code: ErrorCode.externalFault,
+        message: FlexibleOration(message: 'Failed to delete a folder in %1, the system returned error %2', textParts: [nativeRoute, ex.toString()]),
+      ),
+      function: () async {
+        final folder = Directory(nativeRoute);
+        await folder.delete(recursive: true);
+      },
+    );
+  });
+
+  @override
+  Future<Result<bool>> exists() => encapsulatedFunction((heart) async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    return await volatileFuture(
+      error: (ex, st) => NegativeResult.controller(
+        code: ErrorCode.externalFault,
+        message: FlexibleOration(message: 'An error occurred while checking the existence of folder %1, the system reported %2', textParts: [nativeRoute, ex.toString()]),
+      ),
+      function: () {
+        final folder = Directory(nativeRoute);
+        return folder.exists();
+      },
+    );
+  });
+
+  @override
+  Future<Result<bool>> itHasContent() => encapsulatedFunction((heart) async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final isExists = await exists().connect();
+    if (isExists.itsFailure) return isExists.cast();
+
+    if (!isExists.content) {
+      return NegativeResult.controller(
+        code: ErrorCode.nonExistent,
+        message: FlexibleOration(message: 'The folder %1 does not exist', textParts: [nativeRoute]),
+      );
+    }
+
+    return volatileFuture(
+      error: (ex, st) => NegativeResult.controller(
+        code: ErrorCode.externalFault,
+        message: FlexibleOration(message: 'Failed to check if directory %1 was empty; system reported %2', textParts: [nativeRoute, ex.toString()]),
+      ),
+      function: () async {
+        await for (final _ in Directory(nativeRoute).list()) {
+          return true;
+        }
+        return false;
+      },
+    );
+  });
+
+  @override
+  Future<Result<int>> obtainSize() => encapsulatedFunction((heart) async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final isExists = await exists().connect();
+    if (isExists.itsFailure) return isExists.cast();
+
+    if (!isExists.content) {
+      return NegativeResult.controller(
+        code: ErrorCode.nonExistent,
+        message: FlexibleOration(message: 'The folder %1 does not exist', textParts: [nativeRoute]),
+      );
+    }
+
+    int size = 0;
+    await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: false)) {
+      if (heart.itWasDiscarded) {
+        return CancelationResult(cancelationStackTrace: StackTrace.current);
+      }
+      if (entity is File) {
+        size += await entity.length();
+      }
+    }
+    return ResultValue(content: size);
+  });
+
+  @override
+  Stream<FileReference> obtainFiles() async* {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) {
+      throw initializationResult.error;
+    }
+    final heart = LifeCoordinator.tryGetZoneHeart;
+    await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: true).whereType<File>()) {
+      if (heart != null && heart.itWasDiscarded) {
+        break;
+      }
+      yield FileReference.interpretRoute(route: entity.path, isLocal: false).content;
+    }
   }
 
   @override
-  Future<Result<void>> delete() {
-    // TODO: implement delete
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Result<bool>> exists() {
-    // TODO: implement exists
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Result<bool>> itHasContent() {
-    // TODO: implement itHasContent
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<FileReference> obtainFiles() {
-    // TODO: implement obtainFiles
-    throw UnimplementedError();
-  }
-
-  @override
-  Stream<FolderOperator> obtainFolders() {
-    // TODO: implement obtainFolders
-    throw UnimplementedError();
-  }
-
-  @override
-  Future<Result<int>> obtainSize() {
-    // TODO: implement obtainSize
-    throw UnimplementedError();
+  Stream<FolderReference> obtainFolders() async* {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) {
+      throw initializationResult.error;
+    }
+    final heart = LifeCoordinator.tryGetZoneHeart;
+    await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: true).whereType<Directory>()) {
+      if (heart != null && heart.itWasDiscarded) {
+        break;
+      }
+      yield FolderReference.interpretRoute(route: entity.path, isLocal: false).content;
+    }
   }
 }

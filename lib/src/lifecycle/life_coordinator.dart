@@ -3,7 +3,7 @@ import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
-class ParentController with DisposableMixin, InitializableMixin {
+class LifeCoordinator with DisposableMixin, InitializableMixin {
   late List _dynamicObjects;
   late List<Disposable> _disponsableObjects;
   late List<StreamController> _unifiedStreamControlers;
@@ -16,7 +16,7 @@ class ParentController with DisposableMixin, InitializableMixin {
   static bool get hasZoneHeart => Zone.current[kZoneHeart] != null;
   static bool get isZoneHeartCanceled => Zone.current[kZoneHeart] != null && (Zone.current[kZoneHeart] as Disposable).itWasDiscarded;
 
-  static ParentController get zoneHeart {
+  static LifeCoordinator get zoneHeart {
     final item = Zone.current[kZoneHeart];
     if (item == null) {
       throw NegativeResult(
@@ -27,19 +27,17 @@ class ParentController with DisposableMixin, InitializableMixin {
       );
     }
 
-    return item as ParentController;
+    return item as LifeCoordinator;
   }
 
-  static ParentController? get tryGetZoneHeart {
+  static LifeCoordinator? get tryGetZoneHeart {
     final item = Zone.current[kZoneHeart];
     if (item == null) {
       return null;
     }
 
-    return item as ParentController;
+    return item as LifeCoordinator;
   }
-
-  
 
   //////
 
@@ -48,7 +46,7 @@ class ParentController with DisposableMixin, InitializableMixin {
   static const kRootZoneHeart = #kRootZoneHeart;
   static bool get hasRootZoneHeart => Zone.current[kRootZoneHeart] != null;
 
-  static ParentController get rootZoneHeart {
+  static LifeCoordinator get rootZoneHeart {
     final item = Zone.current[kRootZoneHeart];
     if (item == null) {
       throw NegativeResult(
@@ -59,7 +57,7 @@ class ParentController with DisposableMixin, InitializableMixin {
       );
     }
 
-    return item as ParentController;
+    return item as LifeCoordinator;
   }
 
   //////
