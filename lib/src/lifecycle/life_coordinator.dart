@@ -15,6 +15,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
   static const kZoneHeart = #maxiZoneHeart;
   static bool get hasZoneHeart => Zone.current[kZoneHeart] != null;
   static bool get isZoneHeartCanceled => Zone.current[kZoneHeart] != null && (Zone.current[kZoneHeart] as Disposable).itWasDiscarded;
+  
 
   static LifeCoordinator get zoneHeart {
     final item = Zone.current[kZoneHeart];

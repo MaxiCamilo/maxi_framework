@@ -13,8 +13,10 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   final bool _connectToZone;
 
   bool _isActive = false;
+  bool _heartDispose = false;
   Semaphore? _semaphore;
   LifeCoordinator? _actualHeart;
+  Future? _onHeartDispose;
 
   @override
   bool get isActive => _isActive;
@@ -36,6 +38,18 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     );
   }
 
+  void connectToHeart() {
+    final heart = LifeCoordinator.tryGetZoneHeart;
+    if (heart != null) {
+      if (heart.itWasDiscarded) {
+        _heartDispose = true;
+      } else {
+        _heartDispose = false;
+        _onHeartDispose = heart.onDispose.whenComplete(dispose);
+      }
+    }
+  }
+
   @override
   Future<Result<T>> waitResult({Map<Object?, Object?> zoneValues = const {}}) {
     resurrectObject();
@@ -47,6 +61,12 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   Future<Result<T>> _waitResultSync({required Map<Object?, Object?> zoneValues}) async {
     _isActive = true;
     if (itWasDiscarded) {
+      _isActive = false;
+      return CancelationResult<T>(cancelationStackTrace: StackTrace.current);
+    }
+
+    if (_heartDispose) {
+      _onHeartDispose?.ignore();
       _isActive = false;
       return CancelationResult<T>(cancelationStackTrace: StackTrace.current);
     }
@@ -85,6 +105,7 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     whenDispose.ignore();
     whenRootDispose?.ignore();
     heart.dispose();
+    _onHeartDispose?.ignore();
 
     if (_semaphore != null && _semaphore!.onlyHasOne) {
       _semaphore = null;

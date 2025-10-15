@@ -9,6 +9,16 @@ extension IteratonExtensions<T> on Iterable<T> {
     return null;
   }
 
+  E? selectType<E>() {
+    for (final item in this) {
+      if (item is E) {
+        return item;
+      }
+    }
+
+    return null;
+  }
+
   T maximumOf(num Function(T x) funcion) {
     return reduce((curr, next) => funcion(curr) > funcion(next) ? curr : next);
   }

@@ -33,7 +33,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
 
   @protected
   bool sendText(Oration text) {
-    InteractiveExecutor.sendItem(text);
+    InteractiveSystem.sendItem(text);
     return !heart.itWasDiscarded;
   }
 
@@ -83,7 +83,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   @override
   AsyncExecutor<T> interactiveExecution<I>({required void Function(I x) onItem}) {
     return AsyncExecutor(
-      function: () => InteractiveExecutor.execute<I, Result<T>>(function: execute, onItem: onItem),
+      function: () => InteractiveSystem.execute<I, Result<T>>(function: execute, onItem: onItem),
     );
   }
 }

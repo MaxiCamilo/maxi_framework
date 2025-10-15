@@ -23,6 +23,10 @@ class InvocationParameters {
     }
   }
 
+  factory InvocationParameters.only(dynamic value) => InvocationParameters(fixedParameters: [value]);
+
+  factory InvocationParameters.list(List values) => InvocationParameters(fixedParameters: values);
+
   T named<T>(String name) {
     if (namedParameters.isEmpty) {
       throw NegativeResult.controller(

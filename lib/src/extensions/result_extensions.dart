@@ -9,7 +9,7 @@ Future<Result<T>> encapsulatedFunction<T>(FutureOr<Result<T>> Function(LifeCoord
 }
 
 Future<Result<T>> encapsulatedTextable<T>({required FutureOr<Result<T>> Function(LifeCoordinator heart) function, required void Function(Oration) onText}) async {
-  return encapsulatedFunction((heart) => InteractiveExecutor.execute(function: () => function(heart), onItem: onText));
+  return encapsulatedFunction((heart) => InteractiveSystem.execute(function: () => function(heart), onItem: onText));
 }
 
 Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required FutureOr<T> Function() function, FutureOr<void> Function()? onDone, FutureOr<void> Function()? onError}) async {
@@ -84,6 +84,6 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
   }
 
   Future<Result<T>> connectTextable(void Function(Oration) onText) {
-    return InteractiveExecutor.execute(function: () => connect(), onItem: onText);
+    return InteractiveSystem.execute(function: () => connect(), onItem: onText);
   }
 }

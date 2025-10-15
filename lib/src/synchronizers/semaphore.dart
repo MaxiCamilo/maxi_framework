@@ -37,7 +37,7 @@ class Semaphore with DisposableMixin, InitializableMixin {
   }
 
   Future<T> executeInteractive<I, T>({required FutureOr<T> Function() function, required void Function(I) onItem}) {
-    return execute(() => InteractiveExecutor.execute<I, T>(function: function, onItem: onItem));
+    return execute(() => InteractiveSystem.execute<I, T>(function: function, onItem: onItem));
   }
 
   Future<void> _checkIfBusy() async {

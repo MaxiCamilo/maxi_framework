@@ -48,7 +48,7 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   }
 
   @protected
-  void performObjectDiscard() {}
+  void performObjectDiscard(bool itsWasInitialized) {}
 
   @override
   Future<dynamic> get onDispose {
@@ -81,13 +81,14 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
     }
 
     _itWasDiscarded = true;
-    _isInitialized = false;
 
     try {
-      performObjectDiscard();
+      performObjectDiscard(_isInitialized);
     } catch (ex, st) {
       log('Discarding object of type $runtimeType failed; the error was: $ex.\nStack: $st');
     }
+
+    _isInitialized = false;
     _onDisposeCompleter?.complete();
     _onDisposeCompleter = null;
   }
