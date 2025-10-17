@@ -3,13 +3,15 @@ import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
-Future<Result<T>> encapsulatedFunction<T>(FutureOr<Result<T>> Function(LifeCoordinator heart) function) async {
-  final newOperator = AsyncExecutor<T>(function: () => function(LifeCoordinator.zoneHeart));
-  return newOperator.waitResult();
-}
+Future<Result<T>> managedFunction<T>(FutureOr<Result<T>> Function(LifeCoordinator heart) function) async {
+  final heart = LifeCoordinator.tryGetZoneHeart;
 
-Future<Result<T>> encapsulatedTextable<T>({required FutureOr<Result<T>> Function(LifeCoordinator heart) function, required void Function(Oration) onText}) async {
-  return encapsulatedFunction((heart) => InteractiveSystem.execute(function: () => function(heart), onItem: onText));
+  if (heart == null) {
+    final newOperator = AsyncExecutor<T>(function: () => function(LifeCoordinator.zoneHeart));
+    return newOperator.waitResult();
+  } else {
+    return function(heart);
+  }
 }
 
 Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required FutureOr<T> Function() function, FutureOr<void> Function()? onDone, FutureOr<void> Function()? onError}) async {
@@ -17,7 +19,7 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
   final heart = LifeCoordinator.tryGetZoneHeart;
 
   if (heart == null) {
-    return encapsulatedFunction<T>((heart) => volatileFuture(error: error, function: function, onDone: onDone, onError: onError));
+    return managedFunction<T>((heart) => volatileFuture(error: error, function: function, onDone: onDone, onError: onError));
   }
 
   try {
@@ -83,7 +85,5 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return result;
   }
 
-  Future<Result<T>> connectTextable(void Function(Oration) onText) {
-    return InteractiveSystem.execute(function: () => connect(), onItem: onText);
-  }
+  
 }

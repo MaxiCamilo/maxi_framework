@@ -39,7 +39,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
   }
 
   @override
-  Future<Result<FileOperator>> copy({required FolderReference destination}) => encapsulatedFunction((heart) async {
+  Future<Result<FileOperator>> copy({required FolderReference destination}) => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
@@ -302,7 +302,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
   }
 
   @override
-  Future<Result<void>> white({required List<int> content}) => encapsulatedFunction((heart) async {
+  Future<Result<void>> white({required List<int> content}) => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
@@ -331,7 +331,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
   });
 
   @override
-  Future<Result<void>> writeText({required String content, Encoding? encoder}) => encapsulatedFunction((heart) async {
+  Future<Result<void>> writeText({required String content, Encoding? encoder}) => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 

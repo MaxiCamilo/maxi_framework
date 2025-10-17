@@ -39,7 +39,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   }
 
   @override
-  Future<Result<FolderReference>> copy({required FolderReference destination}) => encapsulatedFunction((heart) async {
+  Future<Result<FolderReference>> copy({required FolderReference destination}) => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
@@ -61,7 +61,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     final createdPatch = await newPatch.create().connect();
     if (createdPatch.itsFailure) return createdPatch.cast();
 
-    return encapsulatedFunction((heart) async {
+    return managedFunction((heart) async {
       final dir = Directory(newPatch.nativeRoute);
 
       await for (final entity in dir.list(recursive: true, followLinks: true)) {
@@ -122,7 +122,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   });
 
   @override
-  Future<Result<void>> create() => encapsulatedFunction((heart) async {
+  Future<Result<void>> create() => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
@@ -143,7 +143,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   });
 
   @override
-  Future<Result<void>> delete() => encapsulatedFunction((heart) async {
+  Future<Result<void>> delete() => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
@@ -164,7 +164,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   });
 
   @override
-  Future<Result<bool>> exists() => encapsulatedFunction((heart) async {
+  Future<Result<bool>> exists() => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
@@ -181,7 +181,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   });
 
   @override
-  Future<Result<bool>> itHasContent() => encapsulatedFunction((heart) async {
+  Future<Result<bool>> itHasContent() => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
@@ -210,7 +210,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   });
 
   @override
-  Future<Result<int>> obtainSize() => encapsulatedFunction((heart) async {
+  Future<Result<int>> obtainSize() => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
