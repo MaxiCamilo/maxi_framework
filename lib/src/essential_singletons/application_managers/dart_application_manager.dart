@@ -6,10 +6,11 @@ import 'package:maxi_framework/src/essential_singletons/application_managers/dar
 class DartApplicationManager with AsynchronouslyInitializedMixin implements ApplicationManager {
   final bool useWorkingPathInDebug;
   final bool? _isDefinedDebug;
+  final String? predefinedWorkPath;
 
   bool _isDebug = false;
 
-  DartApplicationManager({this.useWorkingPathInDebug = true, bool? isDebug}) : _isDefinedDebug = isDebug;
+  DartApplicationManager({this.useWorkingPathInDebug = true, bool? isDebug, this.predefinedWorkPath}) : _isDefinedDebug = isDebug;
 
   @override
   bool get isAndroid => Platform.isAndroid;
@@ -54,8 +55,12 @@ class DartApplicationManager with AsynchronouslyInitializedMixin implements Appl
       _isDebug = _isDefinedDebug;
     }
 
-    final routeResult = await NativeFileSingleton.defineRoute(getterRoute: DartLocalRouteDefiner(isDebug: _isDebug), omittedIfDefined: false);
-    if (routeResult.itsFailure) return routeResult.cast();
+    if (predefinedWorkPath == null) {
+      final routeResult = await NativeFileSingleton.defineRouteByFunctionality(getterRoute: DartLocalRouteDefiner(isDebug: _isDebug), omittedIfDefined: false);
+      if (routeResult.itsFailure) return routeResult.cast();
+    } else {
+      await NativeFileSingleton.defineRoute(route: predefinedWorkPath!);
+    }
 
     return voidResult;
   }
@@ -65,4 +70,18 @@ class DartApplicationManager with AsynchronouslyInitializedMixin implements Appl
 
   @override
   FolderOperator buildFolderOperator(FolderReference folder) => NativeFolderOperator(folderReference: folder);
+
+  @override
+  Result<ApplicationManager> cloneToIsolate() {
+    if (!isInitialized) {
+      return NegativeResult.controller(
+        code: ErrorCode.implementationFailure,
+        message: FixedOration(message: 'You must first initialize the application engine, in order to be cloned'),
+      );
+    }
+
+    return ResultValue(
+      content: DartApplicationManager(isDebug: _isDebug, predefinedWorkPath: NativeFileSingleton.localRoute.content, useWorkingPathInDebug: useWorkingPathInDebug),
+    );
+  }
 }

@@ -3,6 +3,8 @@ import 'package:maxi_framework/maxi_framework.dart';
 abstract interface class ApplicationManager {
   static ApplicationManager? _singleton;
 
+  static bool get itsWasDefined => _singleton != null;
+
   static ApplicationManager get singleton {
     if (_singleton == null) {
       throw ControlledFailure(
@@ -50,6 +52,8 @@ abstract interface class ApplicationManager {
 
   bool get isDesktop;
   bool get isMovil;
+
+  Result<ApplicationManager> cloneToIsolate();
 
   FileOperator buildFileOperator(FileReference file);
   FolderOperator buildFolderOperator(FolderReference folder);

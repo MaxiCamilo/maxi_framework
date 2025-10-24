@@ -51,7 +51,7 @@ class Semaphore with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> executeAsyncResult<T>(AsyncResult<T> executor) async {
     if (itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const CancelationResult();
     }
 
     final whenDispose = onDispose.whenComplete(() => executor.dispose());

@@ -7,6 +7,7 @@ abstract interface class Result<T> {
   ErrorData get error;
 
   Result<R> cast<R>();
+  Type get contentType;
 }
 
 class ResultValue<T> implements Result<T> {
@@ -17,6 +18,9 @@ class ResultValue<T> implements Result<T> {
 
   @override
   final T content;
+
+  @override
+  Type get contentType => T;
 
   const ResultValue({required this.content});
 
@@ -54,12 +58,19 @@ class NegativeResult<T> implements Result<T> {
   bool get itsFailure => true;
 
   @override
+  Type get contentType => T;
+
+  @override
   final ErrorData error;
 
   const NegativeResult({required this.error});
 
   factory NegativeResult.controller({required ErrorCode code, required Oration message}) => NegativeResult(
     error: ControlledFailure(errorCode: code, message: message),
+  );
+
+  factory NegativeResult.property({required Oration propertyName, required Oration message}) => NegativeResult(
+    error: InvalidProperty(propertyName: propertyName, message: message),
   );
 
   @override
@@ -79,23 +90,22 @@ class CancelationResult<T> implements Result<T> {
   @override
   bool get itsFailure => true;
 
-  final StackTrace cancelationStackTrace;
-  final DateTime whenWasIt;
-
-  CancelationResult({required this.cancelationStackTrace}) : whenWasIt = DateTime.now();
+  const CancelationResult();
 
   @override
   T get content => throw error;
 
   @override
+  Type get contentType => T;
+
+  @override
   ErrorData get error => ControlledFailure(
     errorCode: ErrorCode.functionalityCancelled,
     message: const FixedOration(message: 'The feature has been canceled'),
-    whenWasIt: whenWasIt,
   );
 
   @override
-  CancelationResult<R> cast<R>() => CancelationResult<R>(cancelationStackTrace: cancelationStackTrace);
+  CancelationResult<R> cast<R>() => CancelationResult<R>();
 
   @override
   String toString() => '<Cancellation error>';
@@ -113,6 +123,9 @@ class ExceptionResult<T> implements Result<T> {
 
   @override
   T get content => throw error;
+
+  @override
+  Type get contentType => T;
 
   @override
   final ErrorData error;

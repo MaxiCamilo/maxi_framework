@@ -82,7 +82,7 @@ class InvocationParameters {
       );
     }
 
-    if (location < fixedParameters.length) {
+    if (location >= fixedParameters.length) {
       throw NegativeResult.controller(
         code: ErrorCode.implementationFailure,
         message: FlexibleOration(message: 'The context has %1 parameters, but parameter %2 (+1) was expected', textParts: [fixedParameters.length, location]),

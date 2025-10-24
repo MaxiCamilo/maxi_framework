@@ -15,7 +15,20 @@ mixin NativeFileSingleton {
     }
   }
 
-  static Future<Result<String>> defineRoute({required Functionality<String> getterRoute, bool omittedIfDefined = true}) {
+  static Future<String> defineRoute({required String route, bool omittedIfDefined = true}) async {
+    _semaphore ??= Semaphore();
+    return _semaphore!.execute(() async {
+      if (omittedIfDefined && _localRoute != null) {
+        return route;
+      }
+
+      _localRoute = route;
+
+      return route;
+    });
+  }
+
+  static Future<Result<String>> defineRouteByFunctionality({required Functionality<String> getterRoute, bool omittedIfDefined = true}) {
     _semaphore ??= Semaphore();
     return _semaphore!.execute(() async {
       if (omittedIfDefined && _localRoute != null) {

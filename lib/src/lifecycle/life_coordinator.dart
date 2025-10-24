@@ -15,7 +15,6 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
   static const kZoneHeart = #maxiZoneHeart;
   static bool get hasZoneHeart => Zone.current[kZoneHeart] != null;
   static bool get isZoneHeartCanceled => Zone.current[kZoneHeart] != null && (Zone.current[kZoneHeart] as Disposable).itWasDiscarded;
-  
 
   static LifeCoordinator get zoneHeart {
     final item = Zone.current[kZoneHeart];
@@ -128,7 +127,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> waitFuture<T>({required Future<T> Function() function}) async {
     if (itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const CancelationResult();
     }
 
     initialize();
@@ -137,7 +136,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     final executor = function().then((x) => completer.complete(ResultValue(content: x))).onError((ex, st) => ExceptionResult(exception: ex, stackTrace: st));
     final done = onDispose.whenComplete(() {
       executor.ignore();
-      completer.complete(CancelationResult(cancelationStackTrace: StackTrace.current));
+      completer.complete(const CancelationResult());
     });
 
     final futureResult = await completer.future;
@@ -149,7 +148,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> waitFutureResult<T>({required Future<Result<T>> Function() function}) async {
     if (itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const CancelationResult();
     }
 
     initialize();
@@ -159,7 +158,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     final done = onDispose.whenComplete(() {
       executor.ignore();
       if (!completer.isCompleted) {
-        completer.complete(CancelationResult(cancelationStackTrace: StackTrace.current));
+        completer.complete(const CancelationResult());
       }
     });
 
@@ -195,7 +194,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> waitAsyncResult<T>(AsyncResult<T> asyncResult) async {
     if (itWasDiscarded) {
-      return CancelationResult<T>(cancelationStackTrace: StackTrace.current);
+      return CancelationResult<T>();
     }
 
     initialize();

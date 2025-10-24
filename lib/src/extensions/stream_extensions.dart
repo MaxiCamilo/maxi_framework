@@ -38,11 +38,11 @@ extension StreamExtensions<T> on Stream<T> {
     final heart = LifeCoordinator.tryGetZoneHeart;
     if (heart != null) {
       if (heart.itWasDiscarded) {
-        return CancelationResult(cancelationStackTrace: StackTrace.current);
+        return const  CancelationResult();
       }
       heartCanceled = heart.onDispose.whenComplete(() {
         if (!waiter.isCompleted) {
-          waiter.complete(CancelationResult(cancelationStackTrace: StackTrace.current));
+          waiter.complete(const  CancelationResult());
         }
       });
     }

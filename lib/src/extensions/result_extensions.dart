@@ -14,6 +14,14 @@ Future<Result<T>> managedFunction<T>(FutureOr<Result<T>> Function(LifeCoordinato
   }
 }
 
+Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required T Function() function}) {
+  try {
+    return ResultValue(content: function());
+  } catch (ex, st) {
+    return error(ex, st);
+  }
+}
+
 Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required FutureOr<T> Function() function, FutureOr<void> Function()? onDone, FutureOr<void> Function()? onError}) async {
   bool onDoneCalled = false;
   final heart = LifeCoordinator.tryGetZoneHeart;
@@ -28,7 +36,7 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
         onDoneCalled = true;
         await onDone();
       }
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const  CancelationResult();
     }
 
     final result = ResultValue<T>(content: await function());
@@ -38,7 +46,7 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
     }
 
     if (heart.itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const  CancelationResult();
     }
 
     return result;
@@ -73,17 +81,15 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
 
     if (heart.itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const  CancelationResult();
     }
 
     final result = await this;
 
     if (heart.itWasDiscarded) {
-      return CancelationResult(cancelationStackTrace: StackTrace.current);
+      return const  CancelationResult();
     }
 
     return result;
   }
-
-  
 }

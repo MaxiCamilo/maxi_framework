@@ -1,3 +1,5 @@
+import 'package:maxi_framework/maxi_framework.dart';
+
 abstract class Oration {
   String get tokenID;
   String get message;
@@ -6,6 +8,10 @@ abstract class Oration {
   String get contextText;
 
   const Oration();
+
+  static Oration searchOration({required List list, required Oration defaultOration}) {
+    return list.selectType<Oration>() ?? defaultOration;
+  }
 
   @override
   bool operator ==(Object other) {
@@ -50,6 +56,8 @@ class FixedOration extends Oration {
 
   const FixedOration({required this.message, this.tokenID = '', this.translated = false, this.contextText = ''});
 
+  factory FixedOration.clone(Oration oration) => FixedOration(message: oration.message, tokenID: oration.tokenID, contextText: oration.contextText, translated: oration.translated);
+
   @override
   String toString() => message;
 }
@@ -73,6 +81,8 @@ class FlexibleOration extends Oration {
   bool get isEmpty => message.isEmpty;
 
   const FlexibleOration({required this.message, required this.textParts, this.tokenID = '', this.translated = false, this.contextText = ''});
+
+  factory FlexibleOration.clone(Oration oration) => FlexibleOration(message: oration.message, tokenID: oration.tokenID, contextText: oration.contextText, translated: oration.translated, textParts: oration.textParts);
 
   @override
   String toString() {

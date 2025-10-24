@@ -9,3 +9,4 @@ export 'src/functionalities.dart';
 export 'src/file.dart';
 export 'src/essential_singletons.dart';
 export 'src/values.dart';
+export 'src/validators.dart';

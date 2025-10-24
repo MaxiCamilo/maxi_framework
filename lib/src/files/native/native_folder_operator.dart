@@ -66,7 +66,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
 
       await for (final entity in dir.list(recursive: true, followLinks: true)) {
         if (heart.itWasDiscarded) {
-          return CancelationResult(cancelationStackTrace: StackTrace.current);
+          return const CancelationResult();
         }
 
         final relative = p.relative(entity.path, from: nativeRoute);
@@ -227,7 +227,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     int size = 0;
     await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: false)) {
       if (heart.itWasDiscarded) {
-        return CancelationResult(cancelationStackTrace: StackTrace.current);
+        return const CancelationResult();
       }
       if (entity is File) {
         size += await entity.length();
