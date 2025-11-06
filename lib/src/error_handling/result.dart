@@ -8,6 +8,19 @@ abstract interface class Result<T> {
 
   Result<R> cast<R>();
   Type get contentType;
+
+  factory Result.adapt(dynamic value) {
+    if (value is T) {
+      return ResultValue<T>(content: value);
+    } else {
+      return NegativeResult(
+        error: ControlledFailure(
+          errorCode: ErrorCode.wrongType,
+          message: FlexibleOration(message: 'The result was attempted to be converted to %1, but the content is %2 and is incompatible', textParts: [T, value.runtimeType]),
+        ),
+      );
+    }
+  }
 }
 
 class ResultValue<T> implements Result<T> {

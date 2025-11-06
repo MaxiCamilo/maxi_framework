@@ -47,7 +47,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     if (isExists.itsFailure) return isExists.cast();
     if (!isExists.content) {
       return NegativeResult.controller(
-        code: ErrorCode.contextInvalidFunctionality,
+        code: ErrorCode.unacceptedState,
         message: FlexibleOration(message: 'Cannot copy folder %1, as it does not exist', textParts: [nativeRoute]),
       );
     }

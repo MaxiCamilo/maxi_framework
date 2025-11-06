@@ -177,7 +177,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
 
         if (actualSize.content > maxSize) {
           return NegativeResult.controller(
-            code: ErrorCode.contextInvalidFunctionality,
+            code: ErrorCode.unacceptedState,
             message: FlexibleOration(
               message: 'The file located at %1 cannot be read because its size exceeds the allowed limit (%2 kb > %3 kb)',
               textParts: [nativeRoute, (actualSize.content ~/ 1024), (maxSize ~/ 1024)],
@@ -277,7 +277,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
 
         if (actualSize.content > maxSize) {
           return NegativeResult.controller(
-            code: ErrorCode.contextInvalidFunctionality,
+            code: ErrorCode.unacceptedState,
             message: FlexibleOration(
               message: 'The file located at %1 cannot be read because its size exceeds the allowed limit (%2 kb > %3 kb)',
               textParts: [nativeRoute, (actualSize.content ~/ 1024), (maxSize ~/ 1024)],

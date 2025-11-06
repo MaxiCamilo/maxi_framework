@@ -8,6 +8,7 @@ abstract interface class Initializable {
 
 mixin InitializableMixin on DisposableMixin implements Initializable {
   bool _isInitialized = false;
+  bool _itsInitializationProcess = false;
 
   @override
   bool get isInitialized => _isInitialized;
@@ -23,7 +24,18 @@ mixin InitializableMixin on DisposableMixin implements Initializable {
       return voidResult;
     }
 
-    final result = performInitialization();
+    if (_itsInitializationProcess) {
+      throw Exception('[¡¡!!] Circular dependency on object $runtimeType');
+    }
+
+    _itsInitializationProcess = true;
+
+    late final Result<void> result;
+    try {
+      result = performInitialization();
+    } finally {
+      _itsInitializationProcess = false;
+    }
 
     if (result.itsCorrect) {
       onDispose.whenComplete(() => _isInitialized = false);

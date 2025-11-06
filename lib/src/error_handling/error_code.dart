@@ -18,8 +18,7 @@ enum ErrorCode {
   discontinuedFunctionality,
   abnormalOperation,
 
-  statusFunctionalityInvalid,
-  contextInvalidFunctionality,
+  unacceptedState,
   functionalityCancelled,
   uninitializedFunctionality,
   reservedFunctionality,
