@@ -15,6 +15,8 @@ class FileReference implements DirectoryReference {
     return '$router/$name';
   }
 
+  factory FileReference.fromFolder({required FolderReference folder, required String name}) => FileReference(isLocal: folder.isLocal, name: name, router: folder.completeRoute);
+
   static Result<FileReference> interpretRoute({required String route, required bool isLocal}) {
     route = route.trim().replaceAll('\\', '/');
 
@@ -82,6 +84,8 @@ class FileReference implements DirectoryReference {
 }
 
 abstract interface class FileOperator {
+  FileReference get fileReference;
+
   Future<Result<bool>> exists();
   Future<Result<void>> create();
   Future<Result<FileOperator>> copy({required FolderReference destination});

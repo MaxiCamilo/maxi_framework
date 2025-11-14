@@ -59,4 +59,14 @@ extension StringExtensions on String {
     }
     return buffer.toString();
   }
+
+  String firstWithLowercase() {
+    if (isEmpty) return this;
+    return '${this[0].toLowerCase()}${extractFrom(since: 1)}';
+  }
+
+  String firstWithUppercase() {
+    if (isEmpty) return this;
+    return '${this[0].toUpperCase()}${extractFrom(since: 1)}';
+  }
 }

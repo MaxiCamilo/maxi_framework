@@ -15,6 +15,8 @@ class FolderReference implements DirectoryReference {
 
   const FolderReference({required this.isLocal, required this.name, required this.router});
 
+  factory FolderReference.fromAnotherFolder({required FolderReference parent, required String name}) => FolderReference(isLocal: parent.isLocal, router: parent.completeRoute, name: name);
+
   static Result<FolderReference> interpretRoute({required String route, required bool isLocal}) {
     route = route.trim().replaceAll('\\', '/');
 
@@ -71,6 +73,8 @@ class FolderReference implements DirectoryReference {
 }
 
 abstract interface class FolderOperator {
+  FolderReference get folderReference;
+
   Future<Result<bool>> exists();
   Future<Result<void>> create();
   Future<Result<FolderReference>> copy({required FolderReference destination});

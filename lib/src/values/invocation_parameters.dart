@@ -54,7 +54,7 @@ class InvocationParameters {
     }
   }
 
-  T? namedOptional<T>(String name, [T? predetermined]) {
+  T optionalNamed<T>({required String name, required T predetermined}) {
     if (namedParameters.isEmpty) {
       return predetermined;
     }
@@ -87,6 +87,29 @@ class InvocationParameters {
         code: ErrorCode.implementationFailure,
         message: FlexibleOration(message: 'The context has %1 parameters, but parameter %2 (+1) was expected', textParts: [fixedParameters.length, location]),
       );
+    }
+
+    final item = fixedParameters[location];
+    if (item is T) {
+      return item;
+    } else {
+      throw NegativeResult.controller(
+        code: ErrorCode.implementationFailure,
+        message: FlexibleOration(message: 'The fixed parameter number %1 was expected to be of type %2, but is of type %3', textParts: [location, T, item.runtimeType]),
+      );
+    }
+  }
+
+  T optionalFixed<T>({required int location, required T predetermined}) {
+    if (location < 0) {
+      throw NegativeResult.controller(
+        code: ErrorCode.implementationFailure,
+        message: FixedOration(message: 'The context does not allow negative parameters'),
+      );
+    }
+
+    if (location >= fixedParameters.length) {
+      return predetermined;
     }
 
     final item = fixedParameters[location];

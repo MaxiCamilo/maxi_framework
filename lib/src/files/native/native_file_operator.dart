@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:maxi_framework/maxi_framework.dart';
 
 class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOperator {
+  @override
   final FileReference fileReference;
 
   String nativeRoute = '';

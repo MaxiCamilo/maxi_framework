@@ -93,3 +93,25 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return result;
   }
 }
+
+extension FutureOrResultExtensions<T> on FutureOr<Result<T>> {
+  Future<Result<T>> connect() async {
+    final heart = LifeCoordinator.tryGetZoneHeart;
+
+    if (heart == null) {
+      return await AsyncExecutor(function: () => this).waitResult();
+    }
+
+    if (heart.itWasDiscarded) {
+      return const  CancelationResult();
+    }
+
+    final result = await this;
+
+    if (heart.itWasDiscarded) {
+      return const  CancelationResult();
+    }
+
+    return result;
+  }
+}

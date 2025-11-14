@@ -62,6 +62,7 @@ class ResultValue<T> implements Result<T> {
 }
 
 const voidResult = ResultValue<void>(content: null);
+ResultValue<T?> nullResult<T>() => ResultValue<T?>(content: null);
 
 class NegativeResult<T> implements Result<T> {
   @override

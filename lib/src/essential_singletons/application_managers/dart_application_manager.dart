@@ -84,4 +84,12 @@ class DartApplicationManager with AsynchronouslyInitializedMixin implements Appl
       content: DartApplicationManager(isDebug: _isDebug, predefinedWorkPath: NativeFileSingleton.localRoute.content, useWorkingPathInDebug: useWorkingPathInDebug),
     );
   }
+
+  @override
+  int get hashCode => Object.hash(isDebug, predefinedWorkPath, useWorkingPathInDebug);
+
+  @override
+  bool operator ==(Object other) {
+    return other is DartApplicationManager && other.isDebug == isDebug && other.predefinedWorkPath == predefinedWorkPath && other.useWorkingPathInDebug == useWorkingPathInDebug;
+  }
 }

@@ -18,6 +18,14 @@ abstract interface class ApplicationManager {
 
   static Future<Result<void>> defineSingleton(ApplicationManager appManager) async {
     if (_singleton != null) {
+      if (_singleton == appManager) {
+        if (_singleton is Initializable) {
+          final result = (_singleton as Initializable).initialize();
+          if (!result.itsCorrect) return result.cast();
+        }
+        return voidResult;
+      }
+
       if (_singleton is Disposable) {
         (_singleton as Disposable).dispose();
       }

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import 'package:rxdart/transformers.dart';
 
 class NativeFolderOperator with AsynchronouslyInitializedMixin implements FolderOperator {
+  @override
   final FolderReference folderReference;
 
   String nativeRoute = '';
