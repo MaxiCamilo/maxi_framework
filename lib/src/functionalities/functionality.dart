@@ -83,7 +83,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   @override
   AsyncExecutor<T> interactiveExecution<I>({required void Function(I x) onItem}) {
     return AsyncExecutor(
-      function: () => InteractiveSystem.execute<I, Result<T>>(function: execute, onItem: onItem),
+      function: () => InteractiveSystem.catchItems<I, Result<T>>(function: execute, onItem: onItem),
     );
   }
 }

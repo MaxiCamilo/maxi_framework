@@ -104,7 +104,11 @@ class CancelationResult<T> implements Result<T> {
   @override
   bool get itsFailure => true;
 
-  const CancelationResult();
+  late final StackTrace stack;
+
+  CancelationResult() {
+    stack = StackTrace.current;
+  }
 
   @override
   T get content => throw error;

@@ -37,7 +37,7 @@ class Semaphore with DisposableMixin, InitializableMixin {
   }
 
   Future<T> executeInteractive<I, T>({required FutureOr<T> Function() function, required void Function(I) onItem}) {
-    return execute(() => InteractiveSystem.execute<I, T>(function: function, onItem: onItem));
+    return execute(() => InteractiveSystem.catchItems<I, T>(function: function, onItem: onItem));
   }
 
   Future<void> _checkIfBusy() async {
@@ -51,7 +51,7 @@ class Semaphore with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> executeAsyncResult<T>(AsyncResult<T> executor) async {
     if (itWasDiscarded) {
-      return const CancelationResult();
+      return  CancelationResult();
     }
 
     final whenDispose = onDispose.whenComplete(() => executor.dispose());

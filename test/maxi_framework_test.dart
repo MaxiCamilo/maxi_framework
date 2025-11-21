@@ -19,7 +19,7 @@ class SyncFunctionality with FunctionalityMixin<String> {
     await heart.delay(duration: const Duration(seconds: 30));
 
     if (isCanceled) {
-      return const CancelationResult();
+      return  CancelationResult();
     }
 
     print('You are $age years old!');
@@ -59,13 +59,13 @@ class AsyncFunctionality with FunctionalityMixin<String> {
     await heart.delay(duration: const Duration(seconds: 7));
 
     if (isCanceled) {
-      return const CancelationResult();
+      return  CancelationResult();
     }
 
     sendText(FlexibleOration(message: 'You are %1 years old!', textParts: [age]));
 
     if (isCanceled) {
-      return const CancelationResult();
+      return  CancelationResult();
     }
 
     await heart.delay(duration: const Duration(seconds: 5));

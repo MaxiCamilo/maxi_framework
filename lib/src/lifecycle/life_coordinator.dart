@@ -10,11 +10,23 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
   late List<StreamSubscription> _unifiedStreamSubscriptions;
   late List<(Timer, Completer<bool>)> _unifiedTimers;
 
+  StackTrace? _creationStackTrace;
+  StackTrace? _disponseStackTrace;
+
+  StackTrace get creationStackTrace {
+    return _creationStackTrace ?? StackTrace.empty;
+  }
+
+  StackTrace get disponseStackTrace {
+    return _disponseStackTrace ?? StackTrace.empty;
+  }
+
   //LOCAL ZONE MANAGER
 
   static const kZoneHeart = #maxiZoneHeart;
   static bool get hasZoneHeart => Zone.current[kZoneHeart] != null;
   static bool get isZoneHeartCanceled => Zone.current[kZoneHeart] != null && (Zone.current[kZoneHeart] as Disposable).itWasDiscarded;
+  
 
   static LifeCoordinator get zoneHeart {
     final item = Zone.current[kZoneHeart];
@@ -127,7 +139,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> waitFuture<T>({required Future<T> Function() function}) async {
     if (itWasDiscarded) {
-      return const CancelationResult();
+      return CancelationResult();
     }
 
     initialize();
@@ -136,7 +148,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     final executor = function().then((x) => completer.complete(ResultValue(content: x))).onError((ex, st) => ExceptionResult(exception: ex, stackTrace: st));
     final done = onDispose.whenComplete(() {
       executor.ignore();
-      completer.complete(const CancelationResult());
+      completer.complete(CancelationResult());
     });
 
     final futureResult = await completer.future;
@@ -148,7 +160,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> waitFutureResult<T>({required Future<Result<T>> Function() function}) async {
     if (itWasDiscarded) {
-      return const CancelationResult();
+      return CancelationResult();
     }
 
     initialize();
@@ -158,7 +170,7 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     final done = onDispose.whenComplete(() {
       executor.ignore();
       if (!completer.isCompleted) {
-        completer.complete(const CancelationResult());
+        completer.complete(CancelationResult());
       }
     });
 
@@ -207,6 +219,14 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     return result;
   }
 
+  bool connectWithHeartZone() {
+    final heartZone = tryGetZoneHeart;
+    if (heartZone == null) return false;
+
+    heartZone.joinDisposableObject(this);
+    return true;
+  }
+
   @override
   Result<void> performInitialization() {
     _dynamicObjects = [];
@@ -215,11 +235,14 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     _unifiedStreamSubscriptions = <StreamSubscription>[];
     _unifiedTimers = <(Timer, Completer<bool>)>[];
 
+    _creationStackTrace = StackTrace.current;
+
     return voidResult;
   }
 
   @override
   void performObjectDiscard() {
+    _disponseStackTrace = StackTrace.current;
     if (!isInitialized) {
       return;
     }

@@ -46,4 +46,16 @@ extension IteratonExtensions<T> on Iterable<T> {
       i += 1;
     }
   }
+
+  int selectPosition(bool Function(T) filtre) {
+    int i = 0;
+    for (final item in this) {
+      if (filtre(item)) {
+        return i;
+      }
+      i += 1;
+    }
+
+    return -1;
+  }
 }

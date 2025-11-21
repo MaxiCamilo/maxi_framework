@@ -3,6 +3,17 @@ import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
+Future<Result<T>> separateExecution<T>({required FutureOr<Result<T>> Function() function, void Function(LifeCoordinator heart)? onHeartCreated}) async {
+  final complete = Completer<Result<T>>();
+  scheduleMicrotask(() async {
+    final newOperator = AsyncExecutor<T>(function: function, onHeartCreated: onHeartCreated, connectToZone: false);
+    final result = await newOperator.waitResult();
+    complete.complete(result);
+  });
+
+  return complete.future;
+}
+
 Future<Result<T>> managedFunction<T>(FutureOr<Result<T>> Function(LifeCoordinator heart) function) async {
   final heart = LifeCoordinator.tryGetZoneHeart;
 
@@ -36,7 +47,7 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
         onDoneCalled = true;
         await onDone();
       }
-      return const  CancelationResult();
+      return CancelationResult();
     }
 
     final result = ResultValue<T>(content: await function());
@@ -46,7 +57,7 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
     }
 
     if (heart.itWasDiscarded) {
-      return const  CancelationResult();
+      return CancelationResult();
     }
 
     return result;
@@ -72,6 +83,165 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
   }
 }
 
+extension ExtensionResult<T> on Result<T> {
+  Result<R> whenCast<I, R>(Result<R> Function(I) func) {
+    if (itsFailure) return cast<R>();
+
+    if (content is I) {
+      return func(content as I);
+    } else {
+      return NegativeResult.controller(
+        code: ErrorCode.wrongType,
+        message: FlexibleOration(message: 'It is not possible to convert the result %1 to %2', textParts: [content.runtimeType, I]),
+      );
+    }
+  }
+
+  Future<Result<R>> whenFutureCast<I, R>(FutureOr<Result<R>> Function(I x) func) async {
+    if (itsFailure) return cast<R>();
+
+    if (content is I) {
+      return await func(content as I);
+    } else {
+      return NegativeResult.controller(
+        code: ErrorCode.wrongType,
+        message: FlexibleOration(message: 'It is not possible to convert the result %1 to %2', textParts: [content.runtimeType, I]),
+      );
+    }
+  }
+
+  Result<R> onCorrect<R>(Result<R> Function(T x) func) {
+    if (itsCorrect) {
+      return func(content);
+    } else {
+      return cast<R>();
+    }
+  }
+
+  Result<R> select<R>(R Function(T x) func) {
+    if (itsCorrect) {
+      final item = func(content);
+      return ResultValue<R>(content: item);
+    } else {
+      return cast<R>();
+    }
+  }
+
+  Result<(T, R)> include<R>(R Function(T x) func) {
+    if (itsCorrect) {
+      try {
+        final item = func(content);
+        return ResultValue<(T, R)>(content: (content, item));
+      } catch (ex, st) {
+        return ExceptionResult<(T, R)>(exception: ex, stackTrace: st);
+      }
+    } else {
+      return cast<(T, R)>();
+    }
+  }
+
+  Result<(T, R)> includeResult<R>(Result<R> Function(T x) func) {
+    if (itsCorrect) {
+      final item = func(content);
+      if (item.itsFailure) {
+        return item.cast<(T, R)>();
+      }
+      return ResultValue<(T, R)>(content: (content, item.content));
+    } else {
+      return cast<(T, R)>();
+    }
+  }
+
+  Future<Result<R>> onCorrectFuture<R>(FutureOr<Result<R>> Function(T x) func) async {
+    if (itsCorrect) {
+      return await func(content);
+    } else {
+      return cast<R>();
+    }
+  }
+
+  Result<void> ignoreContent() {
+    if (itsCorrect) {
+      return voidResult;
+    } else {
+      return cast<void>();
+    }
+  }
+
+  Result<T> logIfFails({String errorName = ''}) {
+    if (itsFailure) {
+      log(errorName.isEmpty ? error.toString() : '[$errorName] ${error.toString()}');
+      log('-----------------------------------------------------');
+      log(StackTrace.current.toString());
+    }
+
+    return this;
+  }
+}
+
+extension AllObjectResultExtensions on Object {
+  Result<T> asResultValue<T>() => ResultValue(content: this as T);
+}
+
+extension AllNullabletResultExtensions on Object? {
+  Result<T> ifItsNull<T>(Result<T> Function() function) {
+    if (this == null) {
+      return function();
+    } else {
+      return this!.asResultValue<T>();
+    }
+  }
+
+  Result<T> errorIfItsNull<T>({ErrorCode code = ErrorCode.nullValue, required Oration message}) {
+    if (this == null) {
+      return NegativeResult<T>.controller(code: code, message: message);
+    } else if (this is Result) {
+      if ((this as Result).itsFailure) return (this as Result).cast();
+      if ((this as Result).content == null) {
+        return NegativeResult<T>.controller(code: code, message: message);
+      } else {
+        return (this as Result).cast<T>();
+      }
+    } else {
+      return this!.asResultValue<T>();
+    }
+  }
+}
+
+extension FutureWithoutResultExtensions<T> on Future<T> {
+  Future<Result<T>> toFutureResult() async {
+    try {
+      final value = await this;
+      return ResultValue<T>(content: value);
+    } catch (ex, st) {
+      return ExceptionResult(exception: ex, stackTrace: st);
+    }
+  }
+
+  Future<Result<T>> makeCancelable({required Duration timeout, Oration message = const FixedOration(message: 'The function took too long and was canceled')}) async {
+    final heart = LifeCoordinator.tryGetZoneHeart;
+    if (heart == null) {
+      return managedFunction(
+        (heart) => then<Result<T>>((value) => ResultValue<T>(content: value)).timeout(
+          timeout,
+          onTimeout: () {
+            heart.dispose();
+            return NegativeResult<T>.controller(code: ErrorCode.timeout, message: message);
+          },
+        ),
+      );
+    } else {
+      return then<Result<T>>((value) => ResultValue<T>(content: value)).timeout(
+        timeout,
+        onTimeout: () {
+          heart.dispose();
+          return NegativeResult<T>.controller(code: ErrorCode.timeout, message: message);
+        },
+      );
+    }
+  }
+}
+
 extension FutureResultExtensions<T> on Future<Result<T>> {
   Future<Result<T>> connect() async {
     final heart = LifeCoordinator.tryGetZoneHeart;
@@ -81,16 +251,132 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
 
     if (heart.itWasDiscarded) {
-      return const  CancelationResult();
+      return CancelationResult();
     }
 
     final result = await this;
 
     if (heart.itWasDiscarded) {
-      return const  CancelationResult();
+      return CancelationResult();
     }
 
     return result;
+  }
+
+  Future<Result<R>> castFuture<R>() async {
+    final content = await this;
+    if (content.itsCorrect) {
+      if (content.content is R) {
+        return ResultValue(content: content.content as R);
+      } else {
+        return NegativeResult(
+          error: ControlledFailure(
+            errorCode: ErrorCode.wrongType,
+            message: FlexibleOration(message: 'The result was attempted to be converted to %1, but the content is %2 and is incompatible', textParts: [R, T]),
+          ),
+        );
+      }
+    } else {
+      return content.cast<R>();
+    }
+  }
+
+  Future<Result<T>> logIfFails({String errorName = ''}) async {
+    final item = await this;
+
+    if (item.itsFailure) {
+      log(errorName.isEmpty ? item.error.toString() : '[$errorName] ${item.error.toString()}');
+      log('-----------------------------------------------------');
+      log(StackTrace.current.toString());
+    }
+
+    return item;
+  }
+
+  Future<Result<T>> cancelIn({required Duration timeout, Oration message = const FixedOration(message: 'The function took too long and was canceled')}) {
+    final heart = LifeCoordinator.tryGetZoneHeart;
+
+    if (heart == null) {
+      return separateExecution(
+        function: () => cancelIn(timeout: timeout, message: message),
+      );
+    } else {
+      return this.timeout(
+        timeout,
+        onTimeout: () {
+          heart.dispose();
+          return NegativeResult.controller(code: ErrorCode.timeout, message: message);
+        },
+      );
+    }
+  }
+
+  Future<Result<R>> onCorrectFuture<R>(FutureOr<Result<R>> Function(T x) func) async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return await func(result.content);
+    } else {
+      return result.cast<R>();
+    }
+  }
+
+  Future<Result<R>> selectFuture<R>(FutureOr<R> Function(T x) func) async {
+    final result = await this;
+    if (result.itsCorrect) {
+      try {
+        return ResultValue<R>(content: await func(result.content));
+      } catch (ex, st) {
+        return ExceptionResult<R>(exception: ex, stackTrace: st);
+      }
+    } else {
+      return result.cast<R>();
+    }
+  }
+
+  Future<Result<void>> onCorrectFutureVoid(FutureOr<void> Function(T x) func) async {
+    final result = await this;
+    if (result.itsCorrect) {
+      await func(result.content);
+      return voidResult;
+    } else {
+      return result.cast<void>();
+    }
+  }
+
+  Future<Result<T>> onNegativeFuture(FutureOr<Result<T>> Function(ErrorData error) func) async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return result;
+    } else {
+      return await func(result.error);
+    }
+  }
+
+  Future<Result<T>> catchNegativeFuture(FutureOr<void> Function(ErrorData error) func) async {
+    final result = await this;
+    if (result.itsFailure) {
+      try {
+        await func(result.error);
+      } catch (ex, st) {
+        return ExceptionResult<T>(exception: ex, stackTrace: st);
+      }
+    }
+
+    return result;
+  }
+}
+
+extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
+  FutureOr<Result<T>> catchException({Result<T> Function(dynamic, StackTrace)? onException}) async {
+    try {
+      return ResultValue<T>(content: await this);
+    } catch (ex, st) {
+      if (onException == null) {
+        return ExceptionResult<T>(exception: ex, stackTrace: st);
+      } else {
+        return onException(ex, st);
+      }
+    }
   }
 }
 
@@ -103,15 +389,33 @@ extension FutureOrResultExtensions<T> on FutureOr<Result<T>> {
     }
 
     if (heart.itWasDiscarded) {
-      return const  CancelationResult();
+      return CancelationResult();
     }
 
     final result = await this;
 
     if (heart.itWasDiscarded) {
-      return const  CancelationResult();
+      return CancelationResult();
     }
 
     return result;
+  }
+
+  Future<Result<void>> ignoreFutureContent() async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return voidResult;
+    } else {
+      return result.cast<void>();
+    }
+  }
+
+  Future<Result<T>> asFutureResult() async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return result;
+    } else {
+      return result.cast<T>();
+    }
   }
 }

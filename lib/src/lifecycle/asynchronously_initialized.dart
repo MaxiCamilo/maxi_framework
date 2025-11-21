@@ -14,9 +14,16 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   bool _itWasDiscarded = false;
   Completer? _onDisposeCompleter;
   Semaphore? _semaphore;
+  LifeCoordinator? _heart;
 
   @override
   bool get itWasDiscarded => _itWasDiscarded;
+
+  @protected
+  LifeCoordinator get heart {
+    _heart ??= LifeCoordinator();
+    return _heart!;
+  }
 
   @protected
   Future<Result<void>> performInitialize();
@@ -35,10 +42,14 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
         if (result.itsCorrect) {
           _isInitialized = true;
         } else {
+          _heart?.dispose();
+          _heart = null;
           dispose();
         }
         return result;
       } catch (ex, st) {
+        _heart?.dispose();
+        _heart = null;
         final result = ExceptionResult(exception: ex, stackTrace: st);
         dispose();
 
@@ -48,7 +59,10 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   }
 
   @protected
-  void performObjectDiscard(bool itsWasInitialized) {}
+  void performObjectDiscard(bool itsWasInitialized) {
+    _heart?.dispose();
+    _heart = null;
+  }
 
   @override
   Future<dynamic> get onDispose {

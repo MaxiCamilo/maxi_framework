@@ -13,6 +13,9 @@ class ControlledFailure implements ErrorData {
   final Oration message;
 
   const ControlledFailure({required this.errorCode, required this.message});
+
+  @override
+  String toString() => '[ID $errorCode] $message';
 }
 
 class InvalidProperty implements ErrorData {
@@ -26,5 +29,3 @@ class InvalidProperty implements ErrorData {
 
   const InvalidProperty({required this.message, required this.propertyName});
 }
-
-
