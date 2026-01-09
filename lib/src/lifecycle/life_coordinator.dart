@@ -26,7 +26,6 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
   static const kZoneHeart = #maxiZoneHeart;
   static bool get hasZoneHeart => Zone.current[kZoneHeart] != null;
   static bool get isZoneHeartCanceled => Zone.current[kZoneHeart] != null && (Zone.current[kZoneHeart] as Disposable).itWasDiscarded;
-  
 
   static LifeCoordinator get zoneHeart {
     final item = Zone.current[kZoneHeart];
@@ -124,6 +123,23 @@ class LifeCoordinator with DisposableMixin, InitializableMixin {
     });
 
     return controller;
+  }
+
+  StreamSubscription<T> joinStream<T>({required Stream<T> stream, required void Function(T event) onData,  Function? onError, void Function()? onDone, bool? cancelOnError}) {
+    late final StreamSubscription<T> subscription;
+    subscription = stream.listen(
+      onData,
+      onError: onError,
+      cancelOnError: cancelOnError,
+      onDone: () {
+        if (onDone != null) {
+          onDone();
+        }
+        _unifiedStreamSubscriptions.remove(subscription);
+      },
+    );
+    joinStreamSubscription<T>(subscription);
+    return subscription;
   }
 
   StreamSubscription<T> joinStreamSubscription<T>(StreamSubscription<T> subscription) {

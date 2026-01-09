@@ -12,3 +12,9 @@ class NoOrationTranslator implements TranslatorForOrations {
     return oration;
   }
 }
+
+
+
+
+
+

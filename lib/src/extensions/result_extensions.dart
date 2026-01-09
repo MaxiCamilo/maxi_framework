@@ -118,6 +118,14 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
+  Result<T> onCorrectLambda(void Function(T x) func) {
+    if (itsCorrect) {
+      func(content);
+    }
+
+    return this;
+  }
+
   Result<R> select<R>(R Function(T x) func) {
     if (itsCorrect) {
       final item = func(content);
@@ -160,6 +168,27 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
+  Future<Result<T>> whenItsCorrect(FutureOr<Result<void>> Function(T x) func) async {
+    if (itsCorrect) {
+      final result = await func(content);
+      return result.itsCorrect ? this : result.cast<T>();
+    } else {
+      return cast<T>();
+    }
+  }
+
+  Future<Result<T>> whenItsCorrectVoid(FutureOr<void> Function(T x) func) async {
+    if (itsCorrect) {
+      final result = await volatileFuture(
+        error: (ex, st) => ExceptionResult(exception: ex, stackTrace: st),
+        function: () => func(content),
+      ).logIfFails();
+      return result.itsCorrect ? this : result.cast<T>();
+    } else {
+      return cast<T>();
+    }
+  }
+
   Result<void> ignoreContent() {
     if (itsCorrect) {
       return voidResult;
@@ -184,7 +213,7 @@ extension AllObjectResultExtensions on Object {
 }
 
 extension AllNullabletResultExtensions on Object? {
-  Result<T> ifItsNull<T>(Result<T> Function() function) {
+  Result<T> asResIfItsNull<T>(Result<T> Function() function) {
     if (this == null) {
       return function();
     } else {
@@ -192,7 +221,7 @@ extension AllNullabletResultExtensions on Object? {
     }
   }
 
-  Result<T> errorIfItsNull<T>({ErrorCode code = ErrorCode.nullValue, required Oration message}) {
+  Result<T> asResErrorIfItsNull<T>({ErrorCode code = ErrorCode.nullValue, required Oration message}) {
     if (this == null) {
       return NegativeResult<T>.controller(code: code, message: message);
     } else if (this is Result) {
@@ -367,7 +396,7 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
 }
 
 extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
-  FutureOr<Result<T>> catchException({Result<T> Function(dynamic, StackTrace)? onException}) async {
+  FutureOr<Result<T>> asResCatchException({Result<T> Function(dynamic, StackTrace)? onException}) async {
     try {
       return ResultValue<T>(content: await this);
     } catch (ex, st) {
