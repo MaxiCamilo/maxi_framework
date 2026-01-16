@@ -23,6 +23,8 @@ abstract interface class Result<T> {
   }
 }
 
+typedef FutureResult<T> = Future<Result<T>>;
+
 class ResultValue<T> implements Result<T> {
   @override
   bool get itsCorrect => true;

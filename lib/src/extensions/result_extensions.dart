@@ -97,6 +97,19 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
+  Result<R> changeValueResult<R>(R Function(T x) func) {
+    if (itsCorrect) {
+      try {
+        final item = func(content);
+        return ResultValue<R>(content: item);
+      } catch (ex, st) {
+        return ExceptionResult<R>(exception: ex, stackTrace: st);
+      }
+    } else {
+      return cast<R>();
+    }
+  }
+
   Future<Result<R>> whenFutureCast<I, R>(FutureOr<Result<R>> Function(I x) func) async {
     if (itsFailure) return cast<R>();
 
@@ -205,6 +218,19 @@ extension ExtensionResult<T> on Result<T> {
     }
 
     return this;
+  }
+
+  T exceptionIfFails({required String detail}) {
+    if (itsFailure) {
+      log(detail);
+      log('-----------------------------------------------------');
+      log(error.toString());
+      log('-----------------------------------------------------');
+      log(StackTrace.current.toString());
+      throw NegativeResult(error: error);
+    }
+
+    return content;
   }
 }
 

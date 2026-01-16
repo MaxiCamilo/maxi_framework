@@ -32,6 +32,9 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   void onCancel() {}
 
   @protected
+  void onReset() {}
+
+  @protected
   bool sendText(Oration text) {
     InteractiveSystem.sendItem(text);
     return !heart.itWasDiscarded;
