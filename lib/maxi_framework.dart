@@ -11,3 +11,4 @@ export 'src/essential_singletons.dart';
 export 'src/values.dart';
 export 'src/validators.dart';
 export 'src/channel.dart';
+export 'src/conditions.dart';

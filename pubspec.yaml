@@ -1,5 +1,5 @@
 name: maxi_framework
-description: A starting point for Dart libraries or applications.
+description: Base library for Maximiliano Camilo's projects made in pure Dart or Flutter. Here you will find the vital structures and functionalities, as well as the system interfaces
 version: 1.0.0
 # repository: https://github.com/my_org/my_repo
 
