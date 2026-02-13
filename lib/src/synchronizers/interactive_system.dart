@@ -6,10 +6,10 @@ import 'package:maxi_framework/maxi_framework.dart';
 //typedef TextableExecutor<T> = InteractiveSystem<Oration, T>;
 
 mixin InteractiveSystem {
-  static const _simbolName = #maxiInteractive;
+  static const kInteractiveSymbolName = #maxiInteractive;
 
   static List<void Function(I)> _getItemSender<I>() {
-    final thing = Zone.current[_simbolName];
+    final thing = Zone.current[kInteractiveSymbolName];
     final result = <void Function(I)>[];
 
     if (thing is List) {
@@ -24,7 +24,7 @@ mixin InteractiveSystem {
   }
 
   static List<Function> getAllSenders() {
-    final thing = Zone.current[_simbolName];
+    final thing = Zone.current[kInteractiveSymbolName];
 
     if (thing is List) {
       return thing.whereType<Function>().toList(growable: false);
@@ -60,7 +60,7 @@ mixin InteractiveSystem {
     final previous = _getItemSender<I>();
     previous.add(onItem);
 
-    final newZone = Zone.current.fork(zoneValues: {_simbolName: previous, ...zoneValues});
+    final newZone = Zone.current.fork(zoneValues: {kInteractiveSymbolName: previous, ...zoneValues});
     return newZone.run<Future<T>>(() async => await function());
   }
 
@@ -76,7 +76,7 @@ mixin InteractiveSystem {
       }
     }
 
-    final newZone = Zone.current.fork(zoneValues: {_simbolName: senders, ...zoneValues});
+    final newZone = Zone.current.fork(zoneValues: {kInteractiveSymbolName: senders, ...zoneValues});
     return newZone.run<Future<T>>(() async => await function());
   }
 }

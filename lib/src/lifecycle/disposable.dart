@@ -26,9 +26,11 @@ mixin DisposableMixin implements Disposable {
     return _onDisposeCompleter!.future;
   }
 
-  void snagOnAnotherObject({required Disposable patern}) {
-    patern.onDispose.whenComplete(dispose);
-  }
+  //void snagOnAnotherObject({required Disposable patern}) {
+  //  patern.onDispose.whenComplete(dispose);
+  //}
+
+
 
   @override
   void dispose() {

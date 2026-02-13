@@ -13,6 +13,20 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
 
   NativeFileOperator({required this.fileReference});
 
+  static Future<Result<String>> parsePath({required String route}) async {
+    final file = FileReference.interpretRoute(route: route, isLocal: false);
+    if (!file.itsCorrect) {
+      return file.cast();
+    }
+
+    final nativeOperator = NativeFileOperator(fileReference: file.content);
+    final initializationResult = await nativeOperator.initialize();
+    if (!initializationResult.itsCorrect) {
+      return initializationResult.cast();
+    }
+    return ResultValue(content: nativeOperator.nativeRoute);
+  }
+
   @override
   Future<Result<void>> performInitialize() async {
     nativeRoute = fileReference.completeRoute;

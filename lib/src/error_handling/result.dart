@@ -150,8 +150,7 @@ class ExceptionResult<T> implements Result<T> {
   @override
   final ErrorData error;
 
-  ExceptionResult({required this.exception, required this.stackTrace, Oration message = const FixedOration(message: 'An internal error occurred while executing a feature')})
-    : error = ControlledFailure(errorCode: ErrorCode.exception, message: message);
+  ExceptionResult({required this.exception, required this.stackTrace, required Oration message}) : error = ControlledFailure(errorCode: ErrorCode.exception, message: message);
   @override
   Result<R> cast<R>() => ExceptionResult<R>(exception: exception, stackTrace: stackTrace, message: error.message);
 

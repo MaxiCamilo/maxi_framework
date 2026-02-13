@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
-class Semaphore with DisposableMixin, InitializableMixin {
+class Mutex with DisposableMixin, InitializableMixin {
   late List<Completer<void>> _queue;
+
+  Completer? _awaitAllQueued;
 
   bool _isBusy = false;
 
@@ -32,6 +34,8 @@ class Semaphore with DisposableMixin, InitializableMixin {
         next.complete();
       } else {
         _isBusy = false;
+        _awaitAllQueued?.complete(null);
+        _awaitAllQueued = null;
       }
     }
   }
@@ -51,7 +55,7 @@ class Semaphore with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> executeAsyncResult<T>(AsyncResult<T> executor) async {
     if (itWasDiscarded) {
-      return  CancelationResult();
+      return CancelationResult();
     }
 
     final whenDispose = onDispose.whenComplete(() => executor.dispose());
@@ -61,6 +65,43 @@ class Semaphore with DisposableMixin, InitializableMixin {
     return result;
   }
 
+  Future<Result<T>> executeInZone<T>(FutureOr<T> Function() function) {
+    initialize();
+    final completer = Completer<Result<T>>();
+
+    execute(() async {
+      if (completer.isCompleted) return;
+
+      final executor = AsyncExecutor.function(function: function);
+      final onDispose = bindChild(executor);
+
+      final result = await executor.waitResult();
+      onDispose.ignore();
+      if (!completer.isCompleted) {
+        completer.complete(result);
+      }
+    });
+
+    return completer.future;
+  }
+
+  Future<T> executeWhenNotBusy<T>(FutureOr<T> Function() function) async {
+    if (!isBusy) {
+      return execute(function);
+    }
+
+    _awaitAllQueued ??= Completer();
+    await _awaitAllQueued!.future;
+
+    return execute(function);
+  }
+
   @override
-  void performObjectDiscard() {}
+  void performObjectDiscard() {
+    _queue.lambda((waiter) => waiter.completeError(CancelationResult()));
+    _queue.clear();
+
+    _awaitAllQueued?.completeError(CancelationResult());
+    _awaitAllQueued = null;
+  }
 }

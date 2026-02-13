@@ -23,7 +23,13 @@ extension StreamExtensions<T> on Stream<T> {
           if (x is Result) {
             waiter.complete(x.cast());
           } else {
-            waiter.complete(ExceptionResult(exception: x, stackTrace: y));
+            waiter.complete(
+              ExceptionResult(
+                exception: x,
+                stackTrace: y,
+                message: const FixedOration(message: 'An unknown error was emitted while waiting for a stream item'),
+              ),
+            );
           }
         }
       },

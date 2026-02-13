@@ -1,7 +1,7 @@
 import 'package:maxi_framework/maxi_framework.dart';
 
 class InvocationParameters {
-  static const InvocationParameters emptry = InvocationParameters();
+  static const InvocationParameters empty = InvocationParameters();
 
   final List fixedParameters;
   final Map<String, dynamic> namedParameters;

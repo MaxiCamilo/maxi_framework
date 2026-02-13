@@ -2,7 +2,7 @@ import 'package:maxi_framework/maxi_framework.dart';
 
 mixin NativeFileSingleton {
   static String? _localRoute;
-  static Semaphore? _semaphore;
+  static Mutex? _mutex;
 
   static Result<String> get localRoute {
     if (_localRoute == null) {
@@ -16,8 +16,8 @@ mixin NativeFileSingleton {
   }
 
   static Future<String> defineRoute({required String route, bool omittedIfDefined = true}) async {
-    _semaphore ??= Semaphore();
-    return _semaphore!.execute(() async {
+    _mutex ??= Mutex();
+    return _mutex!.execute(() async {
       if (omittedIfDefined && _localRoute != null) {
         return route;
       }
@@ -29,8 +29,8 @@ mixin NativeFileSingleton {
   }
 
   static Future<Result<String>> defineRouteByFunctionality({required Functionality<String> getterRoute, bool omittedIfDefined = true}) {
-    _semaphore ??= Semaphore();
-    return _semaphore!.execute(() async {
+    _mutex ??= Mutex();
+    return _mutex!.execute(() async {
       if (omittedIfDefined && _localRoute != null) {
         return ResultValue(content: _localRoute!);
       }
@@ -41,7 +41,7 @@ mixin NativeFileSingleton {
         _localRoute = result.content;
       }
 
-      _semaphore = null;
+      _mutex = null;
       return result;
     });
   }

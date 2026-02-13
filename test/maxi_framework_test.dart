@@ -19,7 +19,7 @@ class SyncFunctionality with FunctionalityMixin<String> {
     await heart.delay(duration: const Duration(seconds: 30));
 
     if (isCanceled) {
-      return  CancelationResult();
+      return CancelationResult();
     }
 
     print('You are $age years old!');
@@ -59,13 +59,13 @@ class AsyncFunctionality with FunctionalityMixin<String> {
     await heart.delay(duration: const Duration(seconds: 7));
 
     if (isCanceled) {
-      return  CancelationResult();
+      return CancelationResult();
     }
 
     sendText(FlexibleOration(message: 'You are %1 years old!', textParts: [age]));
 
     if (isCanceled) {
-      return  CancelationResult();
+      return CancelationResult();
     }
 
     await heart.delay(duration: const Duration(seconds: 5));
@@ -118,7 +118,7 @@ void main() {
       print('chau!');
     });
 
-    test('Semaphore', () async {
+    test('Mutex', () async {
       Future<void> first() async {
         await Future.delayed(const Duration(seconds: 2));
         print('wait');
@@ -131,22 +131,22 @@ void main() {
       }
 
       final futures = <Future>[];
-      final semaphore = Semaphore();
+      final Mutex = Mutex();
 
-      futures.add(semaphore.execute(first));
-      futures.add(semaphore.execute(() => second('Maxi'))); /*
+      futures.add(Mutex.execute(first));
+      futures.add(Mutex.execute(() => second('Maxi'))); /*
       futures.add(
-        semaphore
+        Mutex
             .executeInteractiveFunctionality(
               functionality: AsyncFunctionality(name: 'Seba', age: 27),
               onItem: (x) => print('Event: $x'),
             )
             .waitResult(),
       );*/
-      futures.add(semaphore.execute(() => second('Seba')));
+      futures.add(Mutex.execute(() => second('Seba')));
       /*
       futures.add(
-        semaphore.executeWithLifeCoordinator(
+        Mutex.executeWithLifeCoordinator(
           function: (heart) async {
             await heart.delay(duration: const Duration(seconds: 2));
             return ResultValue(content: 'yey!');

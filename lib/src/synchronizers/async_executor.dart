@@ -12,9 +12,11 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   final void Function(LifeCoordinator)? _onHeartCreated;
   final bool _connectToZone;
 
+  final _currentListeners = <Function>[];
+
   bool _isActive = false;
   bool _heartDispose = false;
-  Semaphore? _semaphore;
+  Mutex? _mutex;
   LifeCoordinator? _actualHeart;
   Future? _onHeartDispose;
 
@@ -50,12 +52,29 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     }
   }
 
+  void addListener<I>(Function(I) listener) {
+    _currentListeners.add(listener);
+  }
+
+  Stream<I> createListenerStream<I>() {
+    if (itWasDiscarded) {
+      throw NegativeResult.controller(
+        code: ErrorCode.implementationFailure,
+        message: const FixedOration(message: 'An attempt was made to create a listener stream for an AsyncExecutor that was already discarded'),
+      );
+    }
+    final controller = StreamController<I>();
+    addListener<I>((item) => controller.add(item));
+    onDispose.whenComplete(() => controller.close());
+    return controller.stream;
+  }
+
   @override
   Future<Result<T>> waitResult({Map<Object?, Object?> zoneValues = const {}}) {
     resurrectObject();
-    _semaphore ??= Semaphore();
+    _mutex ??= Mutex();
 
-    return _semaphore!.execute(() => _waitResultSync(zoneValues: zoneValues));
+    return _mutex!.execute(() => _waitResultSync(zoneValues: zoneValues));
   }
 
   Future<Result<T>> _waitResultSync({required Map<Object?, Object?> zoneValues}) async {
@@ -84,8 +103,24 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
       _onHeartCreated(heart);
     }
 
+    final listenersInArea = Zone.current[InteractiveSystem.kInteractiveSymbolName];
+    final listeners = <Function>[];
+
+    if (listenersInArea is List) {
+      listeners.addAll(listenersInArea.whereType<Function>());
+    }
+
+    _currentListeners.addAll(listeners);
+    _currentListeners.clear();
+
     final child = Zone.current.fork(
-      zoneValues: {LifeCoordinator.kZoneHeart: heart, LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart, AsyncResult.kAsyncExecutor: this, ...zoneValues},
+      zoneValues: {
+        ...zoneValues,
+        LifeCoordinator.kZoneHeart: heart,
+        LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart,
+        AsyncResult.kAsyncExecutor: this,
+        InteractiveSystem.kInteractiveSymbolName: listeners,
+      },
     );
     final futureResult = child.run<Future<Result<T>>>(() async {
       try {
@@ -107,8 +142,8 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     heart.dispose();
     _onHeartDispose?.ignore();
 
-    if (_semaphore != null && _semaphore!.onlyHasOne) {
-      _semaphore = null;
+    if (_mutex != null && _mutex!.onlyHasOne) {
+      _mutex = null;
       _isActive = false;
       dispose();
     }

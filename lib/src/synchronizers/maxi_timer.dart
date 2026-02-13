@@ -2,10 +2,12 @@ import 'dart:async';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
-
 class MaxiTimer<T> with DisposableMixin implements Timer {
   bool _isActive = false;
+  bool _hasBeenConfigured = false;
+  bool _hasPause = false;
   Timer? _originalTimer;
+  final Stopwatch _stopwatch = Stopwatch();
   late Duration _duration;
   late T _payload;
 
@@ -19,6 +21,21 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
   bool get isActive => _isActive;
   @override
   int get tick => _originalTimer?.tick ?? 0;
+
+  Duration get elapsed {
+    if (!_hasBeenConfigured) {
+      throw StateError('The timer has not been configured yet. Please call startOrReset first.');
+    }
+    return _stopwatch.elapsed;
+  }
+
+  Duration get remaining {
+    if (!_hasBeenConfigured) {
+      throw StateError('The timer has not been configured yet. Please call startOrReset first.');
+    }
+    final remaining = _duration - _stopwatch.elapsed;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
 
   Future<T> get onComplete {
     _completer ??= Completer<T>();
@@ -37,6 +54,9 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
 
     _duration = duration;
     _payload = payload;
+
+    _hasBeenConfigured = true;
+    _hasPause = false;
 
     final completer = Completer<bool>();
 
@@ -66,7 +86,37 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     return completer.future;
   }
 
-  Future<T?> waithFinish({void Function(T)? onInterrupt}) async {
+  void reset() {
+    if (!_hasBeenConfigured) {
+      throw StateError('The timer has not been configured yet. Please call startOrReset first.');
+    }
+    startOrReset(duration: _duration, payload: _payload);
+  }
+
+  bool pause() {
+    if (!_isActive) {
+      return false;
+    }
+    _originalTimer?.cancel();
+    _originalTimer = null;
+    _isActive = false;
+    _hasPause = true;
+    _stopwatch.stop();
+    return true;
+  }
+
+  bool resume() {
+    if (!_hasPause) {
+      return false;
+    }
+    _hasPause = false;
+    _isActive = true;
+    _originalTimer = Timer(remaining, _onOriginalTimerComplete);
+    _stopwatch.start();
+    return true;
+  }
+
+  Future<T?> waitFinish({void Function(T)? onInterrupt}) async {
     if (!_isActive) {
       return null;
     }
@@ -98,6 +148,9 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
   void performResurrection() {
     super.performResurrection();
     _isActive = true;
+    _stopwatch
+      ..reset()
+      ..start();
     _originalTimer = Timer(_duration, _onOriginalTimerComplete);
   }
 
@@ -114,6 +167,10 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     _originalTimer?.cancel();
     _originalTimer = null;
     _isActive = false;
+    _hasPause = false;
+    _stopwatch
+      ..stop()
+      ..reset();
     if (_cancelCompleter != null && !_cancelCompleter!.isCompleted) {
       _cancelCompleter!.complete();
     }

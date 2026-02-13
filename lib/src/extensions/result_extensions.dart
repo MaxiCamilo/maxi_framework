@@ -103,7 +103,11 @@ extension ExtensionResult<T> on Result<T> {
         final item = func(content);
         return ResultValue<R>(content: item);
       } catch (ex, st) {
-        return ExceptionResult<R>(exception: ex, stackTrace: st);
+        return ExceptionResult<R>(
+          exception: ex,
+          stackTrace: st,
+          message: FlexibleOration(message: 'It is not possible to change the result value, as it is not compatible: %1', textParts: [ex]),
+        );
       }
     } else {
       return cast<R>();
@@ -154,7 +158,11 @@ extension ExtensionResult<T> on Result<T> {
         final item = func(content);
         return ResultValue<(T, R)>(content: (content, item));
       } catch (ex, st) {
-        return ExceptionResult<(T, R)>(exception: ex, stackTrace: st);
+        return ExceptionResult<(T, R)>(
+          exception: ex,
+          stackTrace: st,
+          message: FlexibleOration(message: 'It is not possible to include the result value, as it is not compatible: %1', textParts: [ex]),
+        );
       }
     } else {
       return cast<(T, R)>();
@@ -192,8 +200,12 @@ extension ExtensionResult<T> on Result<T> {
 
   Future<Result<T>> whenItsCorrectVoid(FutureOr<void> Function(T x) func) async {
     if (itsCorrect) {
-      final result = await volatileFuture(
-        error: (ex, st) => ExceptionResult(exception: ex, stackTrace: st),
+      final result = await volatileFuture<void>(
+        error: (ex, st) => ExceptionResult<void>(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'Internal error: A chained function failed'),
+        ),
         function: () => func(content),
       ).logIfFails();
       return result.itsCorrect ? this : result.cast<T>();
@@ -269,7 +281,11 @@ extension FutureWithoutResultExtensions<T> on Future<T> {
       final value = await this;
       return ResultValue<T>(content: value);
     } catch (ex, st) {
-      return ExceptionResult(exception: ex, stackTrace: st);
+      return ExceptionResult<T>(
+        exception: ex,
+        stackTrace: st,
+        message: const FixedOration(message: 'Internal error: A chained asynchronous function failed'),
+      );
     }
   }
 
@@ -381,7 +397,11 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
       try {
         return ResultValue<R>(content: await func(result.content));
       } catch (ex, st) {
-        return ExceptionResult<R>(exception: ex, stackTrace: st);
+        return ExceptionResult<R>(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'Internal error: A chained asynchronous function failed'),
+        );
       }
     } else {
       return result.cast<R>();
@@ -413,7 +433,11 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
       try {
         await func(result.error);
       } catch (ex, st) {
-        return ExceptionResult<T>(exception: ex, stackTrace: st);
+        return ExceptionResult<T>(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'Internal error: A chained asynchronous function failed while handling an error'),
+        );
       }
     }
 
@@ -427,7 +451,28 @@ extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
       return ResultValue<T>(content: await this);
     } catch (ex, st) {
       if (onException == null) {
-        return ExceptionResult<T>(exception: ex, stackTrace: st);
+        return ExceptionResult<T>(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'Internal error: A chained function failed while processing an exception'),
+        );
+      } else {
+        return onException(ex, st);
+      }
+    }
+  }
+
+  FutureOr<Result<T>> asFutOptResValue({Result<T> Function(dynamic, StackTrace)? onException}) async {
+    final value = await this;
+    try {
+      return ResultValue<T>(content: value);
+    } catch (ex, st) {
+      if (onException == null) {
+        return ExceptionResult<T>(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'Internal error: A chained function failed while processing an exception'),
+        );
       } else {
         return onException(ex, st);
       }

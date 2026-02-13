@@ -13,7 +13,7 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   bool _isInitialized = false;
   bool _itWasDiscarded = false;
   Completer? _onDisposeCompleter;
-  Semaphore? _semaphore;
+  Mutex? _mutex;
   LifeCoordinator? _heart;
 
   @override
@@ -30,8 +30,8 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
 
   @override
   Future<Result<void>> initialize() {
-    _semaphore ??= Semaphore();
-    return _semaphore!.execute(() async {
+    _mutex ??= Mutex();
+    return _mutex!.execute(() async {
       if (_isInitialized) {
         return voidResult;
       }
@@ -50,7 +50,11 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
       } catch (ex, st) {
         _heart?.dispose();
         _heart = null;
-        final result = ExceptionResult(exception: ex, stackTrace: st);
+        final result = ExceptionResult(
+          exception: ex,
+          stackTrace: st,
+          message: FlexibleOration(message: 'An internal error occurred while trying to initialize the functionality %1', textParts: [runtimeType.toString()]),
+        );
         dispose();
 
         return result;
@@ -59,6 +63,7 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   }
 
   @protected
+  @mustCallSuper
   void performObjectDiscard(bool itsWasInitialized) {
     _heart?.dispose();
     _heart = null;
@@ -66,7 +71,7 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
 
   @override
   Future<dynamic> get onDispose {
-    _semaphore ??= Semaphore();
+    _mutex ??= Mutex();
     if (_onDisposeCompleter == null || _onDisposeCompleter!.isCompleted) {
       _onDisposeCompleter = Completer();
     }
@@ -80,8 +85,8 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
 
   @override
   void dispose() {
-    if (_semaphore != null) {
-      _semaphore!.execute(maxi_dispose);
+    if (_mutex != null) {
+      _mutex!.execute(maxi_dispose);
     }
   }
 
