@@ -1,6 +1,8 @@
 import 'package:maxi_framework/maxi_framework.dart';
 
 class FolderReference implements DirectoryReference {
+  static const FolderReference workingFolder = FolderReference(isLocal: true, name: '', router: '');
+
   @override
   final bool isLocal;
   @override
@@ -21,18 +23,18 @@ class FolderReference implements DirectoryReference {
     route = route.trim().replaceAll('\\', '/');
 
     if (route.startsWith(DirectoryReference.prefixRouteLocal)) {
-      isLocal = false;
-      final nativeRoute = NativeFileSingleton.localRoute;
-      if (!nativeRoute.itsCorrect) {
-        return nativeRoute.cast<FolderReference>();
-      }
-      route.replaceAll(DirectoryReference.prefixRouteLocal, nativeRoute.content);
+      isLocal = true;
+      route = route.replaceFirst(DirectoryReference.prefixRouteLocal, '').trim();
+    }
+
+    if (isLocal && route.first == '/') {
+      route = route.substring(1).trim();
     }
 
     String folders = '';
     late final String name;
 
-    final parts = route.split('/');
+    final parts = route.split('/').map((x) => x.trim()).toList();
 
     if (parts.isEmpty) {
       return NegativeResult.controller(
@@ -70,6 +72,8 @@ class FolderReference implements DirectoryReference {
       content: FolderReference(isLocal: file.isLocal, name: name, router: parts.join('/')),
     );
   }
+
+  FolderOperator buildOperator() => appManager.buildFolderOperator(this);
 }
 
 abstract interface class FolderOperator {
@@ -83,4 +87,6 @@ abstract interface class FolderOperator {
   Future<Result<int>> obtainSize();
   Stream<FileReference> obtainFiles();
   Stream<FolderReference> obtainFolders();
+
+  FutureResult<String> obtainCompleteRoute();
 }

@@ -1,7 +1,7 @@
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:maxi_framework/maxi_framework.dart';
+import 'package:maxi_framework/src/app_managers/traits/native_app_manager.dart';
 import 'package:path/path.dart' as p;
 import 'package:rxdart/transformers.dart';
 
@@ -9,31 +9,23 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   @override
   final FolderReference folderReference;
 
+  final NativeAppManager appManager;
+
   String nativeRoute = '';
 
-  NativeFolderOperator({required this.folderReference});
+  NativeFolderOperator({required this.folderReference, required this.appManager});
 
   @override
   Future<Result<void>> performInitialize() async {
-    nativeRoute = folderReference.completeRoute;
-    final containPrefix = nativeRoute.contains(DirectoryReference.prefixRouteLocal);
-    if (!folderReference.isLocal && !containPrefix) {
-      return voidResult;
-    }
-
-    final localRoute = NativeFileSingleton.localRoute;
-    if (!localRoute.itsCorrect) {
-      return localRoute.cast();
-    }
-
     if (folderReference.isLocal) {
-      if (containPrefix) {
-        log('[WARNING] The address has a prefix');
-        nativeRoute.replaceAll(DirectoryReference.prefixRouteLocal, '');
+      final workingPathResult = await appManager.getWorkingPath();
+      if (workingPathResult.itsFailure) return workingPathResult.cast();
+
+      if (folderReference.router.isEmpty) {
+        nativeRoute = workingPathResult.content.replaceAll('\\', '/');
+      } else {
+        nativeRoute = '${workingPathResult.content}/${folderReference.router}'.replaceAll('\\', '/');
       }
-      nativeRoute = '${localRoute.content}/$nativeRoute';
-    } else {
-      nativeRoute.replaceAll(DirectoryReference.prefixRouteLocal, localRoute.content);
     }
 
     return voidResult;
@@ -58,7 +50,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     //final createdParent = await parentOperator.create().connect();
     //if (createdParent.itsFailure) return createdParent.cast();
 
-    final newPatch = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination));
+    final newPatch = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
     final createdPatch = await newPatch.create().connect();
     if (createdPatch.itsFailure) return createdPatch.cast();
 
@@ -67,7 +59,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
 
       await for (final entity in dir.list(recursive: true, followLinks: true)) {
         if (heart.itWasDiscarded) {
-          return  CancelationResult();
+          return CancelationResult();
         }
 
         final relative = p.relative(entity.path, from: nativeRoute);
@@ -228,7 +220,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     int size = 0;
     await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: false)) {
       if (heart.itWasDiscarded) {
-        return  CancelationResult();
+        return CancelationResult();
       }
       if (entity is File) {
         size += await entity.length();
@@ -265,5 +257,12 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
       }
       yield FolderReference.interpretRoute(route: entity.path, isLocal: false).content;
     }
+  }
+
+  @override
+  FutureResult<String> obtainCompleteRoute() async {
+    final initResult = await initialize();
+    if (initResult.itsFailure) return initResult.cast();
+    return ResultValue(content: nativeRoute);
   }
 }

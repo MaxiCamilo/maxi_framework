@@ -20,19 +20,19 @@ class FileReference implements DirectoryReference {
   static Result<FileReference> interpretRoute({required String route, required bool isLocal}) {
     route = route.trim().replaceAll('\\', '/');
 
-    if (route.startsWith(DirectoryReference.prefixRouteLocal)) {
-      isLocal = false;
-      final nativeRoute = NativeFileSingleton.localRoute;
-      if (!nativeRoute.itsCorrect) {
-        return nativeRoute.cast<FileReference>();
-      }
-      route.replaceAll(DirectoryReference.prefixRouteLocal, nativeRoute.content);
+    if (!isLocal && route.startsWith(DirectoryReference.prefixRouteLocal)) {
+      isLocal = true;
+      route = route.replaceFirst(DirectoryReference.prefixRouteLocal, '').trim();
+    }
+
+    if (isLocal && route.first == '/') {
+      route = route.substring(1).trim();
     }
 
     String folders = '';
     late final String name;
 
-    final parts = route.split('/');
+    final parts = route.split('/').map((x) => x.trim()).toList();
 
     if (parts.isEmpty) {
       return NegativeResult.controller(
@@ -80,7 +80,7 @@ class FileReference implements DirectoryReference {
 
   const FileReference({required this.isLocal, required this.name, required this.router});
 
-  FileOperator buildOperator() => ApplicationManager.singleton.buildFileOperator(this);
+  FileOperator buildOperator() => appManager.buildFileOperator(this);
 }
 
 abstract interface class FileOperator {
@@ -96,4 +96,6 @@ abstract interface class FileOperator {
   Future<Result<String>> readText({Encoding? encoder, int? maxSize});
   Future<Result<void>> white({required List<int> content});
   Future<Result<void>> writeText({required String content, Encoding? encoder});
+
+  FutureResult<String> obtainCompleteRoute();
 }

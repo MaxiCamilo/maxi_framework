@@ -7,7 +7,7 @@ export 'src/synchronizers.dart';
 export 'src/error_handling.dart';
 export 'src/functionalities.dart';
 export 'src/file.dart';
-export 'src/essential_singletons.dart';
+export 'src/app_manager.dart';
 export 'src/values.dart';
 export 'src/validators.dart';
 export 'src/channel.dart';

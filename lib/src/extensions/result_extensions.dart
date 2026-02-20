@@ -248,6 +248,17 @@ extension ExtensionResult<T> on Result<T> {
 
 extension AllObjectResultExtensions on Object {
   Result<T> asResultValue<T>() => ResultValue(content: this as T);
+
+  Result<T> dynamicCastResult<T>({Oration? errorMessage}) {
+    if (this is T) {
+      return ResultValue(content: this as T);
+    } else {
+      return NegativeResult.controller(
+        code: ErrorCode.wrongType,
+        message: errorMessage ?? FlexibleOration(message: 'It is not possible to convert the result %1 to %2', textParts: [runtimeType, T]),
+      );
+    }
+  }
 }
 
 extension AllNullabletResultExtensions on Object? {
@@ -439,6 +450,20 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
           message: const FixedOration(message: 'Internal error: A chained asynchronous function failed while handling an error'),
         );
       }
+    }
+
+    return result;
+  }
+
+  Future<Result<T>> injectLogic(FutureOr<Result<void>> Function(T) function) async {
+    final result = await this;
+    if (result.itsFailure) {
+      return result;
+    }
+
+    final logicResult = await function(result.content);
+    if (logicResult.itsFailure) {
+      return logicResult.cast<T>();
     }
 
     return result;

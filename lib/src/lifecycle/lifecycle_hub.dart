@@ -6,6 +6,7 @@ import 'package:meta/meta.dart';
 
 mixin LifecycleHub on DisposableMixin {
   List? _dynamicObjects;
+  List<Function>? _disponsableFunctions;
   List<Disposable>? _disponsableObjects;
   List<StreamController>? _unifiedStreamControlers;
   List<StreamSubscription>? _unifiedStreamSubscriptions;
@@ -16,11 +17,6 @@ mixin LifecycleHub on DisposableMixin {
   @mustCallSuper
   void performResurrection() {
     super.performResurrection();
-    _dynamicObjects = [];
-    _disponsableObjects = [];
-    _unifiedStreamControlers = [];
-    _unifiedStreamSubscriptions = [];
-    _unifiedTimers = [];
   }
 
   @protected
@@ -44,17 +40,30 @@ mixin LifecycleHub on DisposableMixin {
       }
     });
 
+    _disponsableFunctions?.lambda((x) {
+      volatileFunction(
+        error: (ex, st) => ExceptionResult(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'An internal error occurred while executing a feature'),
+        ),
+        function: () => x(),
+      ).logIfFails();
+    });
+
     _dynamicObjects?.clear();
     _disponsableObjects?.clear();
     _unifiedStreamControlers?.clear();
     _unifiedStreamSubscriptions?.clear();
     _unifiedTimers?.clear();
+    _disponsableFunctions?.clear();
 
     _dynamicObjects = null;
     _disponsableObjects = null;
     _unifiedStreamControlers = null;
     _unifiedStreamSubscriptions = null;
     _unifiedTimers = null;
+    _disponsableFunctions = null;
   }
 
   T joinDynamicObject<T>(T item) {
@@ -69,6 +78,7 @@ mixin LifecycleHub on DisposableMixin {
     }
 
     resurrectObject();
+    _dynamicObjects ??= [];
     _dynamicObjects!.add(item);
     return item;
   }
@@ -80,6 +90,7 @@ mixin LifecycleHub on DisposableMixin {
     }
 
     resurrectObject();
+    _disponsableObjects ??= <Disposable>[];
     _disponsableObjects!.add(item);
 
     item.onDispose.whenComplete(() {
@@ -91,6 +102,24 @@ mixin LifecycleHub on DisposableMixin {
     return item;
   }
 
+  void doneFunction(Function funtion) {
+    resurrectObject();
+    _disponsableFunctions ??= <Function>[];
+    _disponsableFunctions!.add(funtion);
+  }
+
+  Result<void> createDependency(Disposable item) {
+    if (item.itWasDiscarded) {
+      return NegativeResult.controller(
+        code: ErrorCode.discontinuedFunctionality,
+        message: const FixedOration(message: 'The dependency item was already discarded'),
+      );
+    }
+    resurrectObject();
+    item.onDispose.whenComplete(dispose);
+    return voidResult;
+  }
+
   StreamController<T> joinStreamController<T>(StreamController<T> controller) {
     if (itWasDiscarded) {
       controller.close();
@@ -98,6 +127,7 @@ mixin LifecycleHub on DisposableMixin {
     }
 
     resurrectObject();
+    _unifiedStreamControlers ??= <StreamController>[];
     _unifiedStreamControlers!.add(controller);
 
     controller.done.whenComplete(() {
@@ -119,7 +149,7 @@ mixin LifecycleHub on DisposableMixin {
         if (onDone != null) {
           onDone();
         }
-        _unifiedStreamSubscriptions!.remove(subscription);
+        _unifiedStreamSubscriptions?.remove(subscription);
       },
     );
     joinStreamSubscription<T>(subscription);
@@ -133,6 +163,7 @@ mixin LifecycleHub on DisposableMixin {
     }
 
     resurrectObject();
+    _unifiedStreamSubscriptions ??= <StreamSubscription>[];
     _unifiedStreamSubscriptions!.add(subscription);
     return subscription;
   }
@@ -208,13 +239,14 @@ mixin LifecycleHub on DisposableMixin {
 
     final completer = Completer<bool>();
     final timer = Timer(duration, () {
-      _unifiedTimers!.remove(instance);
+      _unifiedTimers?.remove(instance);
       if (!completer.isCompleted) {
         completer.complete(true);
       }
     });
 
     instance = (timer, completer);
+    _unifiedTimers ??= <(Timer, Completer<bool>)>[];
     _unifiedTimers!.add(instance);
 
     return completer.future;
@@ -227,11 +259,7 @@ mixin LifecycleHub on DisposableMixin {
 
     resurrectObject();
 
-    final whenDispose = onDispose.whenComplete(asyncResult.dispose);
-
-    final result = asyncResult.waitResult();
-
-    whenDispose.ignore();
-    return result;
+    joinDisposableObject(asyncResult);
+    return asyncResult.waitResult();
   }
 }

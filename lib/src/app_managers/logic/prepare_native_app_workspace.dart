@@ -3,11 +3,11 @@ import 'dart:io';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
-class DartLocalRouteDefiner with FunctionalityMixin<String> {
+class PrepareNativeAppWorkspace with FunctionalityMixin<String> {
   final bool useWorkingPathInDebug;
   final bool isDebug;
 
-  const DartLocalRouteDefiner({required this.isDebug, this.useWorkingPathInDebug = true});
+  PrepareNativeAppWorkspace({required this.isDebug, this.useWorkingPathInDebug = true});
 
   @override
   Future<Result<String>> runFuncionality() async {
@@ -18,7 +18,15 @@ class DartLocalRouteDefiner with FunctionalityMixin<String> {
       route = route.replaceAll('\\', '/');
       final direc = Directory(route);
       if (isDebug && !await direc.exists()) {
-        await direc.create();
+        final debugFolderResult = await volatileFuture(
+          error: (err, st) => ExceptionResult(
+            exception: err,
+            stackTrace: st,
+            message: const FixedOration(message: 'Failed to create debug folder'),
+          ),
+          function: () => direc.create(),
+        );
+        if (debugFolderResult.itsFailure) return debugFolderResult.cast();
       }
       return ResultValue(content: route.replaceAll('\\', '/'));
     } else if (useWorkingPathInDebug) {

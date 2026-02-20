@@ -14,6 +14,46 @@ class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Ch
 
   MasterChannel({this.reactivated = false});
 
+  factory MasterChannel.mirror({required Channel<S, R> origin}) {
+    final channel = MasterChannel<R, S>(reactivated: false);
+
+    origin
+        .getReceiver()
+        .logIfFails(errorName: 'MasterChannel.mirror -> Failed to get origin channel receiver')
+        .onCorrectLambda(
+          (x) => x.listen(
+            (item) {
+              channel.sendItem(item);
+            },
+            onError: (error) {
+              channel.dispose();
+            },
+            onDone: () {
+              channel.dispose();
+            },
+          ),
+        );
+
+    channel
+        .getReceiver()
+        .logIfFails(errorName: 'MasterChannel.mirror -> Failed to get master channel receiver')
+        .onCorrectLambda(
+          (x) => x.listen(
+            (item) {
+              origin.sendItem(item);
+            },
+            onError: (error) {
+              channel.dispose();
+            },
+            onDone: () {
+              channel.dispose();
+            },
+          ),
+        );
+
+    return channel;
+  }
+
   @override
   Result<void> performInitialization() {
     if (_isClosed && !reactivated) {

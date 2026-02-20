@@ -123,7 +123,7 @@ class InvocationParameters {
     }
   }
 
-  T firts<T>() => fixed<T>(0);
+  T first<T>() => fixed<T>(0);
 
   T second<T>() => fixed<T>(1);
 

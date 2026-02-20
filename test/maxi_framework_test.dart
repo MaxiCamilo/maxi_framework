@@ -131,19 +131,19 @@ void main() {
       }
 
       final futures = <Future>[];
-      final Mutex = Mutex();
+      final mutex = Mutex();
 
-      futures.add(Mutex.execute(first));
-      futures.add(Mutex.execute(() => second('Maxi'))); /*
+      futures.add(mutex.execute(first));
+      futures.add(mutex.execute(() => second('Maxi'))); /*
       futures.add(
-        Mutex
+        mutex
             .executeInteractiveFunctionality(
               functionality: AsyncFunctionality(name: 'Seba', age: 27),
               onItem: (x) => print('Event: $x'),
             )
             .waitResult(),
       );*/
-      futures.add(Mutex.execute(() => second('Seba')));
+      futures.add(mutex.execute(() => second('Seba')));
       /*
       futures.add(
         Mutex.executeWithLifeCoordinator(

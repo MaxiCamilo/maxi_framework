@@ -14,16 +14,9 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   bool _itWasDiscarded = false;
   Completer? _onDisposeCompleter;
   Mutex? _mutex;
-  LifeCoordinator? _heart;
 
   @override
   bool get itWasDiscarded => _itWasDiscarded;
-
-  @protected
-  LifeCoordinator get heart {
-    _heart ??= LifeCoordinator();
-    return _heart!;
-  }
 
   @protected
   Future<Result<void>> performInitialize();
@@ -33,6 +26,9 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
     _mutex ??= Mutex();
     return _mutex!.execute(() async {
       if (_isInitialized) {
+        if (_mutex!.onlyHasOne) {
+          _mutex = null;
+        }
         return voidResult;
       }
 
@@ -42,20 +38,22 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
         if (result.itsCorrect) {
           _isInitialized = true;
         } else {
-          _heart?.dispose();
-          _heart = null;
           dispose();
+        }
+        if (_mutex!.onlyHasOne) {
+          _mutex = null;
         }
         return result;
       } catch (ex, st) {
-        _heart?.dispose();
-        _heart = null;
         final result = ExceptionResult(
           exception: ex,
           stackTrace: st,
           message: FlexibleOration(message: 'An internal error occurred while trying to initialize the functionality %1', textParts: [runtimeType.toString()]),
         );
         dispose();
+        if (_mutex!.onlyHasOne) {
+          _mutex = null;
+        }
 
         return result;
       }
@@ -63,11 +61,7 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   }
 
   @protected
-  @mustCallSuper
-  void performObjectDiscard(bool itsWasInitialized) {
-    _heart?.dispose();
-    _heart = null;
-  }
+  void performObjectDiscard(bool itsWasInitialized) {}
 
   @override
   Future<dynamic> get onDispose {

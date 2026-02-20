@@ -1,53 +1,27 @@
 import 'dart:convert';
-import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:maxi_framework/maxi_framework.dart';
+import 'package:maxi_framework/src/app_managers/native_dart/directories/native_folder_operator.dart';
+import 'package:maxi_framework/src/app_managers/traits/native_app_manager.dart';
 
 class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOperator {
   @override
   final FileReference fileReference;
 
+  final NativeAppManager appManager;
+
   String nativeRoute = '';
 
-  NativeFileOperator({required this.fileReference});
-
-  static Future<Result<String>> parsePath({required String route}) async {
-    final file = FileReference.interpretRoute(route: route, isLocal: false);
-    if (!file.itsCorrect) {
-      return file.cast();
-    }
-
-    final nativeOperator = NativeFileOperator(fileReference: file.content);
-    final initializationResult = await nativeOperator.initialize();
-    if (!initializationResult.itsCorrect) {
-      return initializationResult.cast();
-    }
-    return ResultValue(content: nativeOperator.nativeRoute);
-  }
+  NativeFileOperator({required this.fileReference, required this.appManager});
 
   @override
   Future<Result<void>> performInitialize() async {
-    nativeRoute = fileReference.completeRoute;
-    final containPrefix = nativeRoute.contains(DirectoryReference.prefixRouteLocal);
-    if (!fileReference.isLocal && !containPrefix) {
-      return voidResult;
-    }
-
-    final localRoute = NativeFileSingleton.localRoute;
-    if (!localRoute.itsCorrect) {
-      return localRoute.cast();
-    }
-
     if (fileReference.isLocal) {
-      if (containPrefix) {
-        log('[WARNING] The address has a prefix');
-        nativeRoute.replaceAll(DirectoryReference.prefixRouteLocal, '');
-      }
-      nativeRoute = '${localRoute.content}/$nativeRoute';
-    } else {
-      nativeRoute.replaceAll(DirectoryReference.prefixRouteLocal, localRoute.content);
+      final workingPathResult = await appManager.getWorkingPath();
+      if (workingPathResult.itsFailure) return workingPathResult.cast();
+      nativeRoute = '${workingPathResult.content}/${fileReference.router}'.replaceAll('\\', '/');
     }
 
     return voidResult;
@@ -58,7 +32,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final destinationOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination));
+    final destinationOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
 
     final existsFolder = await destinationOperator.exists().connect();
 
@@ -78,6 +52,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
 
     final newFile = NativeFileOperator(
       fileReference: FileReference(isLocal: fileReference.isLocal, name: fileReference.name, router: destination.completeRoute),
+      appManager: appManager,
     );
 
     final existsFile = await newFile.exists().connect();
@@ -328,7 +303,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
       final folder = await FolderReference.fromFile(file: fileReference);
       if (folder.itsFailure) return folder.cast();
 
-      final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content));
+      final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
 
       final createdFolder = await folderOperator.create();
       if (!createdFolder.itsCorrect) return createdFolder.cast();
@@ -357,7 +332,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
       final folder = await FolderReference.fromFile(file: fileReference);
       if (folder.itsFailure) return folder.cast();
 
-      final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content));
+      final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
 
       final createdFolder = await folderOperator.create();
       if (!createdFolder.itsCorrect) return createdFolder.cast();
@@ -373,4 +348,11 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
 
     return creationResult.itsCorrect ? voidResult : creationResult.cast();
   });
+
+  @override
+  FutureResult<String> obtainCompleteRoute() async {
+    final initResult = await initialize();
+    if (initResult.itsFailure) return initResult.cast();
+    return ResultValue(content: nativeRoute);
+  }
 }
