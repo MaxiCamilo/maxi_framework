@@ -84,6 +84,14 @@ class FlexibleOration extends Oration {
 
   factory FlexibleOration.clone(Oration oration) => FlexibleOration(message: oration.message, tokenID: oration.tokenID, contextText: oration.contextText, translated: oration.translated, textParts: oration.textParts);
 
+  factory FlexibleOration.sensible({required Oration debugOration, required Oration productionOration}) {
+    if (appManager.isDebug) {
+      return FlexibleOration.clone(debugOration);
+    } else {
+      return FlexibleOration.clone(productionOration);
+    }
+  }
+
   @override
   String toString() {
     if (isFixed) {

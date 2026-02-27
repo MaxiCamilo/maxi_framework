@@ -224,9 +224,12 @@ extension ExtensionResult<T> on Result<T> {
 
   Result<T> logIfFails({String errorName = ''}) {
     if (itsFailure) {
-      log(errorName.isEmpty ? error.toString() : '[$errorName] ${error.toString()}');
-      log('-----------------------------------------------------');
-      log(StackTrace.current.toString());
+      Future.delayed(Duration.zero);
+      log('''#############################################################
+      ${errorName.isEmpty ? error.toString() : '[$errorName] ${error.toString()}'}
+      -----------------------------------------------------
+      ${StackTrace.current.toString()}
+      #############################################################''');
     }
 
     return this;
@@ -234,11 +237,11 @@ extension ExtensionResult<T> on Result<T> {
 
   T exceptionIfFails({required String detail}) {
     if (itsFailure) {
-      log(detail);
-      log('-----------------------------------------------------');
-      log(error.toString());
-      log('-----------------------------------------------------');
-      log(StackTrace.current.toString());
+      log('''#############################################################
+      FATAL EXCEPTION!!${detail.isEmpty ? '' : ': "$detail"'}
+      -----------------------------------------------------
+      ${StackTrace.current.toString()}
+      #############################################################''');
       throw NegativeResult(error: error);
     }
 
@@ -367,9 +370,11 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     final item = await this;
 
     if (item.itsFailure) {
-      log(errorName.isEmpty ? item.error.toString() : '[$errorName] ${item.error.toString()}');
-      log('-----------------------------------------------------');
-      log(StackTrace.current.toString());
+      log('''#############################################################
+      ${errorName.isEmpty ? item.error.toString() : '[$errorName] ${item.error.toString()}'}
+      -----------------------------------------------------
+      ${item is ResultHasStack ? (item as ResultHasStack).stackTrace.toString() : StackTrace.current.toString()}
+      #############################################################''');
     }
 
     return item;

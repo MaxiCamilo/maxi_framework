@@ -23,6 +23,10 @@ abstract interface class Result<T> {
   }
 }
 
+abstract interface class ResultHasStack<T> implements Result<T> {
+  StackTrace get stackTrace;
+}
+
 typedef FutureResult<T> = Future<Result<T>>;
 
 class ResultValue<T> implements Result<T> {
@@ -99,17 +103,18 @@ class NegativeResult<T> implements Result<T> {
   String toString() => 'Error: ${error.message}';
 }
 
-class CancelationResult<T> implements Result<T> {
+class CancelationResult<T> implements Result<T>, ResultHasStack<T> {
   @override
   bool get itsCorrect => false;
 
   @override
   bool get itsFailure => true;
 
-  late final StackTrace stack;
+  @override
+  late final StackTrace stackTrace;
 
   CancelationResult() {
-    stack = StackTrace.current;
+    stackTrace = StackTrace.current;
   }
 
   @override
@@ -131,8 +136,10 @@ class CancelationResult<T> implements Result<T> {
   String toString() => '<Cancellation error>';
 }
 
-class ExceptionResult<T> implements Result<T> {
+class ExceptionResult<T> implements Result<T>, ResultHasStack<T> {
   final dynamic exception;
+
+  @override
   final StackTrace stackTrace;
 
   @override

@@ -7,7 +7,7 @@ import 'package:meta/meta.dart';
 mixin LifecycleHub on DisposableMixin {
   List? _dynamicObjects;
   List<Function>? _disponsableFunctions;
-  List<Disposable>? _disponsableObjects;
+  List<(Disposable, Function?)>? _disponsableObjects;
   List<StreamController>? _unifiedStreamControlers;
   List<StreamSubscription>? _unifiedStreamSubscriptions;
   List<(Timer, Completer<bool>)>? _unifiedTimers;
@@ -23,7 +23,10 @@ mixin LifecycleHub on DisposableMixin {
   @override
   @mustCallSuper
   void performObjectDiscard() {
-    _disponsableObjects?.lambda((x) => x.dispose());
+    _disponsableObjects?.lambda((x) {
+      x.$1.dispose();
+      x.$2?.call();
+    });
     _unifiedStreamControlers?.lambda((x) => x.close());
     _unifiedStreamSubscriptions?.lambda((x) => x.cancel());
     _unifiedTimers?.lambda((x) {
@@ -83,19 +86,20 @@ mixin LifecycleHub on DisposableMixin {
     return item;
   }
 
-  T joinDisposableObject<T extends Disposable>(T item) {
+  T joinDisposableObject<T extends Disposable>(T item, [Function? onDisposeFunction]) {
     if (itWasDiscarded) {
       item.dispose();
       return item;
     }
 
     resurrectObject();
-    _disponsableObjects ??= <Disposable>[];
-    _disponsableObjects!.add(item);
+    _disponsableObjects ??= <(Disposable, Function?)>[];
+    final func = (item, onDisposeFunction);
+    _disponsableObjects!.add(func);
 
     item.onDispose.whenComplete(() {
       if (!itWasDiscarded) {
-        _disponsableObjects!.remove(item);
+        _disponsableObjects!.remove(func);
       }
     });
 
@@ -116,7 +120,8 @@ mixin LifecycleHub on DisposableMixin {
       );
     }
     resurrectObject();
-    item.onDispose.whenComplete(dispose);
+    final link = item.onDispose.whenComplete(dispose);
+    onDispose.whenComplete(() => link.ignore());
     return voidResult;
   }
 
