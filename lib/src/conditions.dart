@@ -5,3 +5,5 @@ export 'conditions/equals/compare_antagonist.dart';
 export 'conditions/equals/compare_values.dart';
 export 'conditions/similars/compare_similar_number.dart';
 export 'conditions/similars/compare_similar_text.dart';
+export 'conditions/similars/compare_number_range.dart';
+export 'conditions/equals/compare_selected_value.dart';

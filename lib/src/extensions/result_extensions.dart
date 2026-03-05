@@ -473,6 +473,26 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
 
     return result;
   }
+
+  Future<Result<T>> injectNegativeLogic(FutureOr<void> Function(NegativeResult<T>) function) async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return result;
+    }
+
+    await function(result as NegativeResult<T>);
+
+    return result;
+  }
+
+  Future<Result<T>> tryWhenNegative(FutureOr<Result<T>> Function(NegativeResult<T>) function) async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return result;
+    }
+
+    return await function(result as NegativeResult<T>);
+  }
 }
 
 extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
