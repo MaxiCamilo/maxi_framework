@@ -35,6 +35,11 @@ abstract interface class ApplicationManager {
   bool get isDesktop;
   bool get isMovil;
 
+  Channel<(dynamic, StackTrace), (dynamic, StackTrace)> get exceptionChannel;
+
+  Result<void> changeExceptionChannel(Channel<(dynamic, StackTrace), (dynamic, StackTrace)> channel);
+  FutureResult<void> changeDebugState(bool isDebug);
+
   FileOperator buildFileOperator(FileReference file);
   FolderOperator buildFolderOperator(FolderReference folder);
 }

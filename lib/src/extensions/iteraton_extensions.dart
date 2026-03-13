@@ -1,3 +1,5 @@
+import 'package:maxi_framework/maxi_framework.dart';
+
 extension IteratonExtensions<T> on Iterable<T> {
   T? selectItem(bool Function(T x) funcion) {
     for (final item in this) {
@@ -57,5 +59,26 @@ extension IteratonExtensions<T> on Iterable<T> {
     }
 
     return -1;
+  }
+
+  Result<List<R>> volatileMap<R>(R Function(T) transform, {Oration Function(T, Object)? buildMessage}) {
+    final newList = <R>[];
+    for (final element in this) {
+      try {
+        newList.add(transform(element));
+      } catch (ex, st) {
+        appManager.exceptionChannel.sendItem((ex, st));
+        late final Oration message;
+        if (buildMessage == null) {
+          message = const FixedOration(message: 'An error occurred while processing a list element');
+        } else {
+          message = buildMessage(element, ex);
+        }
+
+        return ExceptionResult(exception: ex, stackTrace: st, message: message);
+      }
+    }
+
+    return newList.asResultValue();
   }
 }

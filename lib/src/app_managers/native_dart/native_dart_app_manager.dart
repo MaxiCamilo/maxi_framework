@@ -14,10 +14,13 @@ class _NativeDartAppManagerConfig {
   _NativeDartAppManagerConfig({required this.isDebug, required this.workingPath});
 }
 
-class NativeDartAppManager with AsynchronouslyInitializedMixin implements ApplicationManager, NativeAppManager, IsolatedReplicableApplicationManager {
+class NativeDartAppManager with DisposableMixin, AsynchronouslyInitializedMixin implements ApplicationManager, NativeAppManager, IsolatedReplicableApplicationManager {
   bool _isDebug = false;
   String _currentWorkingPath = '¿?';
   _NativeDartAppManagerConfig? _previousConfig;
+  Channel<(dynamic, StackTrace), (dynamic, StackTrace)>? _exceptionChannel;
+
+  final bool _isOriginalInstance;
 
   @override
   bool get isAndroid => Platform.isAndroid;
@@ -52,10 +55,10 @@ class NativeDartAppManager with AsynchronouslyInitializedMixin implements Applic
   @override
   bool get isDesktop => isWindows || isLinux || isMacOS;
 
-  NativeDartAppManager();
+  NativeDartAppManager({required bool isOriginalInstance}) : _isOriginalInstance = isOriginalInstance;
 
   factory NativeDartAppManager._withConfig(_NativeDartAppManagerConfig config) {
-    final manager = NativeDartAppManager();
+    final manager = NativeDartAppManager(isOriginalInstance: false);
     manager._previousConfig = config;
     manager._isDebug = config.isDebug;
     manager._currentWorkingPath = config.workingPath;
@@ -64,6 +67,10 @@ class NativeDartAppManager with AsynchronouslyInitializedMixin implements Applic
 
   @override
   Future<Result<void>> performInitialize() async {
+    if (!_isOriginalInstance) {
+      return voidResult;
+    }
+
     if (_previousConfig != null) {
       _isDebug = _previousConfig!.isDebug;
       _currentWorkingPath = _previousConfig!.workingPath;
@@ -112,6 +119,43 @@ class NativeDartAppManager with AsynchronouslyInitializedMixin implements Applic
       ),
     );
   }
+
+  @override
+  Channel<(dynamic, StackTrace), (dynamic, StackTrace)> get exceptionChannel {
+    if (_exceptionChannel == null) {
+      final master = MasterChannel<(dynamic, StackTrace), (dynamic, StackTrace)>();
+      _exceptionChannel = master;
+      return master.buildConnector().exceptionIfFails(detail: 'Exception channel for NativeDartAppManager');
+    }
+
+    if (_exceptionChannel is MasterChannel<(dynamic, StackTrace), (dynamic, StackTrace)>) {
+      return (_exceptionChannel as MasterChannel<(dynamic, StackTrace), (dynamic, StackTrace)>).buildConnector().exceptionIfFails(detail: 'Exception channel for NativeDartAppManager');
+    }
+
+    return _exceptionChannel!;
+  }
+
+  @override
+  Result<void> changeExceptionChannel(Channel<(dynamic, StackTrace), (dynamic, StackTrace)> channel) {
+    final itsDiscarded = failIfItsDiscarded();
+    if (itsDiscarded.itsFailure) {
+      return itsDiscarded.cast();
+    }
+
+    if (_exceptionChannel != null) {
+      channel.reflectChannel(_exceptionChannel!);
+    }
+    _exceptionChannel = channel;
+    return voidResult;
+  }
+
+  @override
+  FutureResult<void> changeDebugState(bool isDebug) async {
+    final initResult = await initialize();
+    if (initResult.itsFailure) return initResult.cast();
+    _isDebug = isDebug;
+    return voidResult;
+  }
 }
 
 class _CloneNativeDartAppManager with FunctionalityMixin<ApplicationManager> {
@@ -120,5 +164,5 @@ class _CloneNativeDartAppManager with FunctionalityMixin<ApplicationManager> {
   _CloneNativeDartAppManager({required this.config});
 
   @override
-  FutureOr<Result<ApplicationManager>> runFuncionality() => NativeDartAppManager._withConfig(config).asResultValue();
+  FutureOr<Result<ApplicationManager>> runInternalFuncionality() => NativeDartAppManager._withConfig(config).asResultValue();
 }

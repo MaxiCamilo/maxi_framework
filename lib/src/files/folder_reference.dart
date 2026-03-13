@@ -12,12 +12,32 @@ class FolderReference implements DirectoryReference {
 
   @override
   String get completeRoute {
-    return '$router/$name';
+    if (isLocal) {
+      if (router == DirectoryReference.prefixRouteLocal) {
+        return '$router/$name';
+      } else {
+        return router.isNotEmpty ? '${DirectoryReference.prefixRouteLocal}/$router/$name' : '${DirectoryReference.prefixRouteLocal}/$name';
+      }
+    } else {
+      return router.isNotEmpty ? '$router/$name' : name;
+    }
   }
 
   const FolderReference({required this.isLocal, required this.name, required this.router});
 
-  factory FolderReference.fromAnotherFolder({required FolderReference parent, required String name}) => FolderReference(isLocal: parent.isLocal, router: parent.completeRoute, name: name);
+  factory FolderReference.fromAnotherFolder({required FolderReference parent, required String name}) {
+    late String route;
+    if (parent.isLocal) {
+      route = parent.completeRoute.replaceAll(DirectoryReference.prefixRouteLocal, '').trim();
+      if (route.first == '/') {
+        route = route.substring(1);
+      }
+    } else {
+      route = parent.completeRoute;
+    }
+
+    return FolderReference(isLocal: parent.isLocal, router: route, name: name);
+  }
 
   static Result<FolderReference> interpretRoute({required String route, required bool isLocal}) {
     route = route.trim().replaceAll('\\', '/');

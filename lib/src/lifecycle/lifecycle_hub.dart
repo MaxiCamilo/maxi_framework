@@ -7,6 +7,7 @@ import 'package:meta/meta.dart';
 mixin LifecycleHub on DisposableMixin {
   List? _dynamicObjects;
   List<Function>? _disponsableFunctions;
+  List<(dynamic, Function?, Future?)>? _disponsableManualObjects;
   List<(Disposable, Function?)>? _disponsableObjects;
   List<StreamController>? _unifiedStreamControlers;
   List<StreamSubscription>? _unifiedStreamSubscriptions;
@@ -54,19 +55,39 @@ mixin LifecycleHub on DisposableMixin {
       ).logIfFails();
     });
 
+    _disponsableManualObjects?.lambda((x) {
+      volatileFunction(
+        error: (ex, st) => ExceptionResult(
+          exception: ex,
+          stackTrace: st,
+          message: const FixedOration(message: 'An internal error occurred while executing a feature'),
+        ),
+        function: () {
+          if (x.$2 != null) {
+            x.$2!(x.$1);
+          }
+        },
+      ).logIfFails();
+      x.$3?.ignore();
+      if (x.$1 is Disposable) {
+        (x.$1 as Disposable).dispose();
+      }
+    });
+
     _dynamicObjects?.clear();
     _disponsableObjects?.clear();
     _unifiedStreamControlers?.clear();
     _unifiedStreamSubscriptions?.clear();
     _unifiedTimers?.clear();
     _disponsableFunctions?.clear();
-
+    _disponsableManualObjects?.clear();
     _dynamicObjects = null;
     _disponsableObjects = null;
     _unifiedStreamControlers = null;
     _unifiedStreamSubscriptions = null;
     _unifiedTimers = null;
     _disponsableFunctions = null;
+    _disponsableManualObjects = null;
   }
 
   T joinDynamicObject<T>(T item) {
@@ -171,6 +192,23 @@ mixin LifecycleHub on DisposableMixin {
     _unifiedStreamSubscriptions ??= <StreamSubscription>[];
     _unifiedStreamSubscriptions!.add(subscription);
     return subscription;
+  }
+
+  void joinManualDisposableObject<T>(T object, {Function(T)? onDisponse, Future? ignorantFuturo}) {
+    if (itWasDiscarded) {
+      onDisponse?.call(object);
+      return;
+    }
+
+    resurrectObject();
+    _disponsableManualObjects ??= <(dynamic, Function?, Future?)>[];
+
+    final func = (object, onDisponse, ignorantFuturo);
+    if (ignorantFuturo != null) {
+      ignorantFuturo.whenComplete(() => _disponsableManualObjects!.remove(func));
+    }
+
+    _disponsableManualObjects!.add(func);
   }
 
   Future<Result<T>> waitFuture<T>({required Future<T> Function() function}) async {

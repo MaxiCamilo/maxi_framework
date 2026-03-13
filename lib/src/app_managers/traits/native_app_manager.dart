@@ -4,4 +4,6 @@ abstract interface class NativeAppManager {
   FutureResult<String> getWorkingPath();
 
   FutureResult<void> defineWorkingPath(String path);
+
+  
 }

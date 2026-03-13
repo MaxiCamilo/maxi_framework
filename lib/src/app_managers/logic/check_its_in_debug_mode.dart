@@ -7,7 +7,7 @@ class CheckItsInDebugMode with FunctionalityMixin<bool> {
   const CheckItsInDebugMode();
 
   @override
-  Future<Result<bool>> runFuncionality() async {
+  Future<Result<bool>> runInternalFuncionality() async {
     return ResultValue(content: Platform.environment['PUB_ENVIRONMENT'] == 'vscode.dart-code');
   }
 }

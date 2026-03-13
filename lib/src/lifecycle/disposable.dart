@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:maxi_framework/src/error_handling/error_code.dart';
+import 'package:maxi_framework/src/error_handling/result.dart';
+import 'package:maxi_framework/src/language/oration.dart';
 import 'package:meta/meta.dart';
 
 abstract interface class Disposable {
@@ -30,8 +33,6 @@ mixin DisposableMixin implements Disposable {
   //  patern.onDispose.whenComplete(dispose);
   //}
 
-
-
   @override
   void dispose() {
     maxi_dispose();
@@ -56,6 +57,17 @@ mixin DisposableMixin implements Disposable {
   }
 
   @protected
+  @nonVirtual
+  Result<void> failIfItsDiscarded() {
+    if (_itWasDiscarded) {
+      return NegativeResult.controller(code: ErrorCode.discontinuedFunctionality , message: const FixedOration(message: 'The object was discarded and can not be used anymore'));
+    } else {
+      return voidResult;
+      
+    }
+  }
+
+  @protected
   void performResurrection() {}
 
   // ignore: non_constant_identifier_names
@@ -75,5 +87,3 @@ mixin DisposableMixin implements Disposable {
     _onDisposeCompleter = null;
   }
 }
-
-

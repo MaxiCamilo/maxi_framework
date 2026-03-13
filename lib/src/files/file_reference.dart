@@ -12,10 +12,30 @@ class FileReference implements DirectoryReference {
 
   @override
   String get completeRoute {
-    return '$router/$name';
+    if (isLocal) {
+      if (router == DirectoryReference.prefixRouteLocal) {
+        return '$router/$name';
+      } else {
+        return router.isNotEmpty ? '${DirectoryReference.prefixRouteLocal}/$router/$name' : '${DirectoryReference.prefixRouteLocal}/$name';
+      }
+    } else {
+      return router.isNotEmpty ? '$router/$name' : name;
+    }
   }
 
-  factory FileReference.fromFolder({required FolderReference folder, required String name}) => FileReference(isLocal: folder.isLocal, name: name, router: folder.completeRoute);
+  factory FileReference.fromFolder({required FolderReference folder, required String name}) {
+    late String route;
+    if (folder.isLocal) {
+      route = folder.completeRoute.replaceAll(DirectoryReference.prefixRouteLocal, '').trim();
+      if (route.first == '/') {
+        route = route.substring(1);
+      }
+    } else {
+      route = folder.completeRoute;
+    }
+
+    return FileReference(isLocal: folder.isLocal, router: route, name: name);
+  }
 
   static Result<FileReference> interpretRoute({required String route, required bool isLocal}) {
     route = route.trim().replaceAll('\\', '/');

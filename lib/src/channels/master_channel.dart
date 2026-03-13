@@ -5,6 +5,7 @@ import 'package:meta/meta.dart';
 
 class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Channel<R, S> {
   final bool reactivated;
+  final bool closeWhenNoSlaves;
 
   bool _isClosed = false;
 
@@ -12,48 +13,8 @@ class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Ch
 
   late List<_SlaveChannel<S, R>> _slavers;
 
-  MasterChannel({this.reactivated = false});
-
-  factory MasterChannel.mirror({required Channel<S, R> origin}) {
-    final channel = MasterChannel<R, S>(reactivated: false);
-
-    origin
-        .getReceiver()
-        .logIfFails(errorName: 'MasterChannel.mirror -> Failed to get origin channel receiver')
-        .onCorrectLambda(
-          (x) => x.listen(
-            (item) {
-              channel.sendItem(item);
-            },
-            onError: (error) {
-              channel.dispose();
-            },
-            onDone: () {
-              channel.dispose();
-            },
-          ),
-        );
-
-    channel
-        .getReceiver()
-        .logIfFails(errorName: 'MasterChannel.mirror -> Failed to get master channel receiver')
-        .onCorrectLambda(
-          (x) => x.listen(
-            (item) {
-              origin.sendItem(item);
-            },
-            onError: (error) {
-              channel.dispose();
-            },
-            onDone: () {
-              channel.dispose();
-            },
-          ),
-        );
-
-    return channel;
-  }
-
+  MasterChannel({this.reactivated = false, this.closeWhenNoSlaves = false});
+  
   @override
   Result<void> performInitialization() {
     if (_isClosed && !reactivated) {
@@ -83,7 +44,12 @@ class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Ch
 
     final newSlaver = _SlaveChannel<S, R>(master: this);
 
-    newSlaver.onDispose.whenComplete(() => _slavers.remove(newSlaver));
+    newSlaver.onDispose.whenComplete(() {
+      _slavers.remove(newSlaver);
+      if (closeWhenNoSlaves && _slavers.isEmpty) {
+        dispose();
+      }
+    });
     _slavers.add(newSlaver);
 
     return ResultValue(content: newSlaver);

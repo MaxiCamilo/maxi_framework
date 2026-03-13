@@ -13,7 +13,7 @@ class SyncFunctionality with FunctionalityMixin<String> {
   const SyncFunctionality({required this.name, required this.age});
 
   @override
-  Future<Result<String>> runFuncionality() async {
+  Future<Result<String>> runInternalFuncionality() async {
     print('Hi $name!');
 
     await heart.delay(duration: const Duration(seconds: 30));
@@ -52,7 +52,7 @@ class AsyncFunctionality with FunctionalityMixin<String> {
   }
 
   @override
-  Future<Result<String>> runFuncionality() async {
+  Future<Result<String>> runInternalFuncionality() async {
     print('chanchan');
     sendText(FlexibleOration(message: 'Hi %1!', textParts: [name]));
 

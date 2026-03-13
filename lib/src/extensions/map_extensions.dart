@@ -38,4 +38,14 @@ extension MapExtensions<K, V> on Map<K, V> {
       );
     }
   }
+
+  Map<K, V> where(bool Function(K key, V value) condition) {
+    final result = <K, V>{};
+    for (final entry in entries) {
+      if (condition(entry.key, entry.value)) {
+        result[entry.key] = entry.value;
+      }
+    }
+    return result;
+  }
 }

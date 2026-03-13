@@ -14,7 +14,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   Oration get functionalityName => FixedOration(message: runtimeType.toString());
 
   @protected
-  FutureOr<Result<T>> runFuncionality();
+  FutureOr<Result<T>> runInternalFuncionality();
 
   @protected
   void onError(Result<T> result) {}
@@ -50,7 +50,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   Future<Result<T>> execute() async {
     late Result<T> result;
     try {
-      result = await runFuncionality();
+      result = await runInternalFuncionality();
       if (result is CancelationResult) {
         onCancel();
       } else {
@@ -61,6 +61,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
         }
       }
     } catch (ex, st) {
+      appManager.exceptionChannel.sendItem((ex, st));
       result = ExceptionResult(
         exception: ex,
         stackTrace: st,

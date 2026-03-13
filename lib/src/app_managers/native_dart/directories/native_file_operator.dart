@@ -4,25 +4,26 @@ import 'dart:typed_data';
 
 import 'package:maxi_framework/maxi_framework.dart';
 import 'package:maxi_framework/src/app_managers/native_dart/directories/native_folder_operator.dart';
-import 'package:maxi_framework/src/app_managers/traits/native_app_manager.dart';
+import 'package:maxi_framework/src/app_managers/native_dart/directories/process_native_route.dart';
 
-class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOperator {
+class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin implements FileOperator {
   @override
   final FileReference fileReference;
 
   final NativeAppManager appManager;
 
-  String nativeRoute = '';
+  String nativeLocationRoute = '';
+  String nativeDirectRoute = '';
 
   NativeFileOperator({required this.fileReference, required this.appManager});
 
   @override
   Future<Result<void>> performInitialize() async {
-    if (fileReference.isLocal) {
-      final workingPathResult = await appManager.getWorkingPath();
-      if (workingPathResult.itsFailure) return workingPathResult.cast();
-      nativeRoute = '${workingPathResult.content}/${fileReference.router}'.replaceAll('\\', '/');
-    }
+    final processRouteResult = await ProcessNativeRoute(reference: fileReference, appManager: appManager).execute();
+    if (processRouteResult.itsFailure) return processRouteResult.cast();
+
+    nativeLocationRoute = processRouteResult.content.$1;
+    nativeDirectRoute = processRouteResult.content.$2;
 
     return voidResult;
   }
@@ -66,31 +67,53 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     return await volatileFuture<FileOperator>(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'The file %1 could not be copied; the system returned an error: %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'The file %1 could not be copied; the system returned an error: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
 
       function: () async {
-        final instance = File(nativeRoute);
-        await instance.copy(destinationOperator.nativeRoute);
+        final instance = File(nativeDirectRoute);
+        await instance.copy(destinationOperator.nativeDirectRoute);
         return newFile;
       },
     );
   });
 
+  FutureResult<bool> existFolderLocation() async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final folerResult = FolderReference.interpretRoute(route: nativeLocationRoute, isLocal: false);
+    if (folerResult.itsFailure) return folerResult.cast();
+
+    final folder = folerResult.content;
+    final folderOperator = NativeFolderOperator(folderReference: folder, appManager: appManager);
+    return await folderOperator.exists().connect();
+  }
+
   @override
   Future<Result<void>> create() async {
     final initializationResult = await initialize();
-    if (!initializationResult.itsCorrect) return initializationResult.cast();
+    if (initializationResult.itsFailure) return initializationResult.cast();
 
-    if (!await File(nativeRoute).exists()) {
+    final existFolderLocationResult = await existFolderLocation().connect();
+    if (existFolderLocationResult.itsFailure) return existFolderLocationResult.cast();
+
+    if (!existFolderLocationResult.content) {
+      return NegativeResult.controller(
+        code: ErrorCode.nonExistent,
+        message: FlexibleOration(message: 'The folder location %1 does not exist. So the file %2 cannot be created', textParts: [nativeLocationRoute, nativeDirectRoute]),
+      );
+    }
+
+    if (!await File(nativeDirectRoute).exists()) {
       final creationFile = await volatileFuture(
         error: (ex, st) => NegativeResult.controller(
           code: ErrorCode.externalFault,
-          message: FlexibleOration(message: 'Failed to create the file in %1, the system returned an error: %2', textParts: [nativeRoute, ex.toString()]),
+          message: FlexibleOration(message: 'Failed to create the file in %1, the system returned an error: %2', textParts: [nativeDirectRoute, ex.toString()]),
         ),
-        function: () => File(nativeRoute).create(),
+        function: () => File(nativeDirectRoute).create(),
       );
-      if (!creationFile.itsCorrect) return creationFile.cast();
+      if (creationFile.itsFailure) return creationFile.cast();
     }
 
     return voidResult;
@@ -99,18 +122,18 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
   @override
   Future<Result<void>> delete() async {
     final initializationResult = await initialize();
-    if (!initializationResult.itsCorrect) return initializationResult.cast();
+    if (initializationResult.itsFailure) return initializationResult.cast();
 
     final existsFile = await exists().connect();
-    if (!existsFile.itsCorrect) return existsFile.cast();
+    if (existsFile.itsFailure) return existsFile.cast();
 
     if (existsFile.content) {
       await volatileFuture(
         error: (ex, st) => NegativeResult.controller(
           code: ErrorCode.externalFault,
-          message: FlexibleOration(message: 'Failed to delete the file in %1, the system returned an error: %2', textParts: [nativeRoute, ex.toString()]),
+          message: FlexibleOration(message: 'Failed to delete the file in %1, the system returned an error: %2', textParts: [nativeDirectRoute, ex.toString()]),
         ),
-        function: () => File(nativeRoute).delete(),
+        function: () => File(nativeDirectRoute).delete(),
       );
     }
 
@@ -120,24 +143,24 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
   @override
   Future<Result<bool>> exists() async {
     final initializationResult = await initialize();
-    if (!initializationResult.itsCorrect) return initializationResult.cast();
+    if (initializationResult.itsFailure) return initializationResult.cast();
 
     return await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'An error occurred while checking if file %1 exists, the system returned: %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'An error occurred while checking if file %1 exists, the system returned: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
-      function: () => File(nativeRoute).exists(),
+      function: () => File(nativeDirectRoute).exists(),
     );
   }
 
   @override
   Future<Result<int>> obtainSize() async {
     final initializationResult = await initialize();
-    if (!initializationResult.itsCorrect) return initializationResult.cast();
+    if (initializationResult.itsFailure) return initializationResult.cast();
 
     final existsFile = await exists().connect();
-    if (!existsFile.itsCorrect) return existsFile.cast();
+    if (existsFile.itsFailure) return existsFile.cast();
 
     if (!existsFile.content) {
       return ResultValue(content: 0);
@@ -146,9 +169,9 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     return await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to get the file size for %1, the system returned an error: %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Failed to get the file size for %1, the system returned an error: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
-      function: () => File(nativeRoute).length(),
+      function: () => File(nativeDirectRoute).length(),
     );
   }
 
@@ -170,7 +193,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
             code: ErrorCode.unacceptedState,
             message: FlexibleOration(
               message: 'The file located at %1 cannot be read because its size exceeds the allowed limit (%2 kb > %3 kb)',
-              textParts: [nativeRoute, (actualSize.content ~/ 1024), (maxSize ~/ 1024)],
+              textParts: [nativeDirectRoute, (actualSize.content ~/ 1024), (maxSize ~/ 1024)],
             ),
           );
         }
@@ -179,9 +202,9 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
       return volatileFuture(
         error: (ex, st) => NegativeResult.controller(
           code: ErrorCode.externalFault,
-          message: FlexibleOration(message: 'Could not read the file at %1, the system returned the error: %2', textParts: [nativeRoute, ex.toString()]),
+          message: FlexibleOration(message: 'Could not read the file at %1, the system returned the error: %2', textParts: [nativeDirectRoute, ex.toString()]),
         ),
-        function: () => File(nativeRoute).readAsBytes(),
+        function: () => File(nativeDirectRoute).readAsBytes(),
       );
     } else {
       final createdFile = await create().connect();
@@ -223,10 +246,10 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     final createdLector = await volatileFuture<RandomAccessFile>(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Could not create a reader for file %1, the system returned %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Could not create a reader for file %1, the system returned %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
 
-      function: () => File(nativeRoute).open(mode: FileMode.read),
+      function: () => File(nativeDirectRoute).open(mode: FileMode.read),
     );
 
     if (createdLector.itsFailure) return createdLector.cast();
@@ -235,7 +258,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
       onError: () => createdLector.content.close(),
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Could not position the file reader %1, the system reported: %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Could not position the file reader %1, the system reported: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () => createdLector.content.setPosition(from),
     );
@@ -245,7 +268,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     return volatileFuture<List<int>>(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Could not read part of file %1, the system reported: %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Could not read part of file %1, the system reported: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () => createdLector.content.read(amount),
       onDone: () => createdLector.content.close(),
@@ -270,7 +293,7 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
             code: ErrorCode.unacceptedState,
             message: FlexibleOration(
               message: 'The file located at %1 cannot be read because its size exceeds the allowed limit (%2 kb > %3 kb)',
-              textParts: [nativeRoute, (actualSize.content ~/ 1024), (maxSize ~/ 1024)],
+              textParts: [nativeDirectRoute, (actualSize.content ~/ 1024), (maxSize ~/ 1024)],
             ),
           );
         }
@@ -279,9 +302,9 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
       return volatileFuture(
         error: (ex, st) => NegativeResult.controller(
           code: ErrorCode.externalFault,
-          message: FlexibleOration(message: 'Could not read the file at %1, the system returned the error: %2', textParts: [nativeRoute, ex.toString()]),
+          message: FlexibleOration(message: 'Could not read the file at %1, the system returned the error: %2', textParts: [nativeDirectRoute, ex.toString()]),
         ),
-        function: () => File(nativeRoute).readAsString(encoding: encoder ?? utf8),
+        function: () => File(nativeDirectRoute).readAsString(encoding: encoder ?? utf8),
       );
     } else {
       final createdFile = await create().connect();
@@ -312,9 +335,9 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     final creationResult = await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
-      function: () => File(nativeRoute).writeAsBytes(content),
+      function: () => File(nativeDirectRoute).writeAsBytes(content),
     );
 
     return creationResult.itsCorrect ? voidResult : creationResult.cast();
@@ -341,9 +364,9 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
     final creationResult = await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
-      function: () => File(nativeRoute).writeAsString(content),
+      function: () => File(nativeDirectRoute).writeAsString(content),
     );
 
     return creationResult.itsCorrect ? voidResult : creationResult.cast();
@@ -353,6 +376,6 @@ class NativeFileOperator with AsynchronouslyInitializedMixin implements FileOper
   FutureResult<String> obtainCompleteRoute() async {
     final initResult = await initialize();
     if (initResult.itsFailure) return initResult.cast();
-    return ResultValue(content: nativeRoute);
+    return ResultValue(content: nativeDirectRoute);
   }
 }

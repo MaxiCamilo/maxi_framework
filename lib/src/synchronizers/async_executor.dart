@@ -126,6 +126,7 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
       try {
         return await _function();
       } catch (ex, st) {
+        appManager.exceptionChannel.sendItem((ex, st));
         log('Exception detected!: $ex');
         log('------------------------------------------------------------------');
         log(st.toString());

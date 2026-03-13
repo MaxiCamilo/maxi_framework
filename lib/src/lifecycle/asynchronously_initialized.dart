@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 import 'package:meta/meta.dart';
@@ -9,7 +8,7 @@ abstract interface class AsynchronouslyInitialized implements Disposable {
   Future<Result<void>> initialize();
 }
 
-mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
+mixin AsynchronouslyInitializedMixin on DisposableMixin implements AsynchronouslyInitialized {
   bool _isInitialized = false;
   bool _itWasDiscarded = false;
   Completer? _onDisposeCompleter;
@@ -17,6 +16,9 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
 
   @override
   bool get itWasDiscarded => _itWasDiscarded;
+
+  @override
+  bool get isInitialized => _isInitialized;
 
   @protected
   Future<Result<void>> performInitialize();
@@ -61,7 +63,23 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
   }
 
   @protected
-  void performObjectDiscard(bool itsWasInitialized) {}
+  @override
+  void performObjectDiscard() {
+    _itWasDiscarded = true;
+    if (_isInitialized) {
+      _isInitialized = false;
+      performInitializedObjectDiscard();
+    } else {
+      performUnitializedObjectDiscard();
+    }
+    _isInitialized = false;
+  }
+
+  @protected
+  void performUnitializedObjectDiscard() {}
+
+  @protected
+  void performInitializedObjectDiscard() {}
 
   @override
   Future<dynamic> get onDispose {
@@ -73,36 +91,12 @@ mixin AsynchronouslyInitializedMixin implements AsynchronouslyInitialized {
     return _onDisposeCompleter!.future;
   }
 
-  void snagOnAnotherObject({required Disposable patern}) {
-    patern.onDispose.whenComplete(dispose);
-  }
+  
 
   @override
   void dispose() {
     if (_mutex != null) {
       _mutex!.execute(maxi_dispose);
     }
-  }
-
-  @override
-  bool get isInitialized => _isInitialized;
-
-  // ignore: non_constant_identifier_names
-  void maxi_dispose() {
-    if (_itWasDiscarded) {
-      return;
-    }
-
-    _itWasDiscarded = true;
-
-    try {
-      performObjectDiscard(_isInitialized);
-    } catch (ex, st) {
-      log('Discarding object of type $runtimeType failed; the error was: $ex.\nStack: $st');
-    }
-
-    _isInitialized = false;
-    _onDisposeCompleter?.complete();
-    _onDisposeCompleter = null;
   }
 }

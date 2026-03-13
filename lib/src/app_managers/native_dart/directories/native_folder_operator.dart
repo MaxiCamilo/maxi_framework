@@ -1,32 +1,28 @@
 import 'dart:io';
 
 import 'package:maxi_framework/maxi_framework.dart';
-import 'package:maxi_framework/src/app_managers/traits/native_app_manager.dart';
+import 'package:maxi_framework/src/app_managers/native_dart/directories/process_native_route.dart';
 import 'package:path/path.dart' as p;
 import 'package:rxdart/transformers.dart';
 
-class NativeFolderOperator with AsynchronouslyInitializedMixin implements FolderOperator {
+class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin implements FolderOperator {
   @override
   final FolderReference folderReference;
 
   final NativeAppManager appManager;
 
-  String nativeRoute = '';
+  String nativeDirectRoute = '';
+  String nativeLocationRoute = '';
 
   NativeFolderOperator({required this.folderReference, required this.appManager});
 
   @override
   Future<Result<void>> performInitialize() async {
-    if (folderReference.isLocal) {
-      final workingPathResult = await appManager.getWorkingPath();
-      if (workingPathResult.itsFailure) return workingPathResult.cast();
+    final processRouteResult = await ProcessNativeRoute(reference: folderReference, appManager: appManager).execute();
+    if (processRouteResult.itsFailure) return processRouteResult.cast();
 
-      if (folderReference.router.isEmpty) {
-        nativeRoute = workingPathResult.content.replaceAll('\\', '/');
-      } else {
-        nativeRoute = '${workingPathResult.content}/${folderReference.router}'.replaceAll('\\', '/');
-      }
-    }
+    nativeLocationRoute = processRouteResult.content.$1;
+    nativeDirectRoute = processRouteResult.content.$2;
 
     return voidResult;
   }
@@ -41,7 +37,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     if (!isExists.content) {
       return NegativeResult.controller(
         code: ErrorCode.unacceptedState,
-        message: FlexibleOration(message: 'Cannot copy folder %1, as it does not exist', textParts: [nativeRoute]),
+        message: FlexibleOration(message: 'Cannot copy folder %1, as it does not exist', textParts: [nativeDirectRoute]),
       );
     }
 
@@ -55,15 +51,15 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     if (createdPatch.itsFailure) return createdPatch.cast();
 
     return managedFunction((heart) async {
-      final dir = Directory(newPatch.nativeRoute);
+      final dir = Directory(newPatch.nativeDirectRoute);
 
       await for (final entity in dir.list(recursive: true, followLinks: true)) {
         if (heart.itWasDiscarded) {
           return CancelationResult();
         }
 
-        final relative = p.relative(entity.path, from: nativeRoute);
-        final newPath = p.join(newPatch.nativeRoute, relative);
+        final relative = p.relative(entity.path, from: nativeDirectRoute);
+        final newPath = p.join(newPatch.nativeDirectRoute, relative);
 
         if (entity is Directory) {
           final directoryCreated = await volatileFuture(
@@ -114,10 +110,32 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     });
   });
 
+  FutureResult<bool> existFolderLocation() async {
+    final initializationResult = await initialize();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final folerResult = FolderReference.interpretRoute(route: nativeLocationRoute, isLocal: false);
+    if (folerResult.itsFailure) return folerResult.cast();
+
+    final folder = folerResult.content;
+    final folderOperator = NativeFolderOperator(folderReference: folder, appManager: appManager);
+    return await folderOperator.exists().connect();
+  }
+
   @override
   Future<Result<void>> create() => managedFunction((heart) async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final existFolderLocationResult = await existFolderLocation();
+    if (existFolderLocationResult.itsFailure) return existFolderLocationResult.cast();
+
+    if (!existFolderLocationResult.content) {
+      return NegativeResult.controller(
+        code: ErrorCode.nonExistent,
+        message: FlexibleOration(message: 'The folder location %1 does not exist. So the folder %2 cannot be created', textParts: [nativeLocationRoute, nativeDirectRoute]),
+      );
+    }
 
     final isExists = await exists().connect();
     if (isExists.itsFailure) return isExists.cast();
@@ -126,10 +144,10 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     return await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to create a folder in %1, the system returned error %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Failed to create a folder in %1, the system returned error %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () async {
-        final folder = Directory(nativeRoute);
+        final folder = Directory(nativeDirectRoute);
         await folder.create(recursive: true);
       },
     );
@@ -147,10 +165,10 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     return await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to delete a folder in %1, the system returned error %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Failed to delete a folder in %1, the system returned error %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () async {
-        final folder = Directory(nativeRoute);
+        final folder = Directory(nativeDirectRoute);
         await folder.delete(recursive: true);
       },
     );
@@ -164,10 +182,10 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     return await volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'An error occurred while checking the existence of folder %1, the system reported %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'An error occurred while checking the existence of folder %1, the system reported %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () {
-        final folder = Directory(nativeRoute);
+        final folder = Directory(nativeDirectRoute);
         return folder.exists();
       },
     );
@@ -184,17 +202,17 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     if (!isExists.content) {
       return NegativeResult.controller(
         code: ErrorCode.nonExistent,
-        message: FlexibleOration(message: 'The folder %1 does not exist', textParts: [nativeRoute]),
+        message: FlexibleOration(message: 'The folder %1 does not exist', textParts: [nativeDirectRoute]),
       );
     }
 
     return volatileFuture(
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to check if directory %1 was empty; system reported %2', textParts: [nativeRoute, ex.toString()]),
+        message: FlexibleOration(message: 'Failed to check if directory %1 was empty; system reported %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () async {
-        await for (final _ in Directory(nativeRoute).list()) {
+        await for (final _ in Directory(nativeDirectRoute).list()) {
           return true;
         }
         return false;
@@ -213,12 +231,12 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
     if (!isExists.content) {
       return NegativeResult.controller(
         code: ErrorCode.nonExistent,
-        message: FlexibleOration(message: 'The folder %1 does not exist', textParts: [nativeRoute]),
+        message: FlexibleOration(message: 'The folder %1 does not exist', textParts: [nativeDirectRoute]),
       );
     }
 
     int size = 0;
-    await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: false)) {
+    await for (final entity in Directory(nativeDirectRoute).list(recursive: true, followLinks: false)) {
       if (heart.itWasDiscarded) {
         return CancelationResult();
       }
@@ -236,7 +254,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
       throw initializationResult.error;
     }
     final heart = LifeCoordinator.tryGetZoneHeart;
-    await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: true).whereType<File>()) {
+    await for (final entity in Directory(nativeDirectRoute).list(recursive: true, followLinks: true).whereType<File>()) {
       if (heart != null && heart.itWasDiscarded) {
         break;
       }
@@ -251,7 +269,7 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
       throw initializationResult.error;
     }
     final heart = LifeCoordinator.tryGetZoneHeart;
-    await for (final entity in Directory(nativeRoute).list(recursive: true, followLinks: true).whereType<Directory>()) {
+    await for (final entity in Directory(nativeDirectRoute).list(recursive: true, followLinks: true).whereType<Directory>()) {
       if (heart != null && heart.itWasDiscarded) {
         break;
       }
@@ -263,6 +281,6 @@ class NativeFolderOperator with AsynchronouslyInitializedMixin implements Folder
   FutureResult<String> obtainCompleteRoute() async {
     final initResult = await initialize();
     if (initResult.itsFailure) return initResult.cast();
-    return ResultValue(content: nativeRoute);
+    return ResultValue(content: nativeDirectRoute);
   }
 }

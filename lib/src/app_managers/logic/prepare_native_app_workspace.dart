@@ -10,7 +10,7 @@ class PrepareNativeAppWorkspace with FunctionalityMixin<String> {
   PrepareNativeAppWorkspace({required this.isDebug, this.useWorkingPathInDebug = true});
 
   @override
-  Future<Result<String>> runFuncionality() async {
+  Future<Result<String>> runInternalFuncionality() async {
     late String route;
 
     if (useWorkingPathInDebug && isDebug) {

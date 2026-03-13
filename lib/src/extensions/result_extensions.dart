@@ -29,6 +29,7 @@ Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrac
   try {
     return ResultValue(content: function());
   } catch (ex, st) {
+    appManager.exceptionChannel.sendItem((ex, st));
     return error(ex, st);
   }
 }
@@ -62,6 +63,7 @@ Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, Sta
 
     return result;
   } catch (ex, st) {
+    appManager.exceptionChannel.sendItem((ex, st));
     if (onDone != null && !onDoneCalled) {
       try {
         await onDone();
@@ -237,6 +239,7 @@ extension ExtensionResult<T> on Result<T> {
 
   T exceptionIfFails({required String detail}) {
     if (itsFailure) {
+      appManager.exceptionChannel.sendItem((error, StackTrace.current));
       log('''#############################################################
       FATAL EXCEPTION!!${detail.isEmpty ? '' : ': "$detail"'}
       -----------------------------------------------------
@@ -328,6 +331,10 @@ extension FutureWithoutResultExtensions<T> on Future<T> {
 }
 
 extension FutureResultExtensions<T> on Future<Result<T>> {
+  FutureResult<T> separateHeart() {
+    return separateExecution(function: () => this);
+  }
+
   Future<Result<T>> connect() async {
     final heart = LifeCoordinator.tryGetZoneHeart;
 
@@ -492,6 +499,39 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
 
     return await function(result as NegativeResult<T>);
+  }
+
+  Future<T> waitContentOrThrow() async {
+    final result = await this;
+    if (result.itsCorrect) {
+      return result.content;
+    } else {
+      log('''#############################################################
+      FATAL EXCEPTION!! The asynchronous function returned an error result that was not handled!
+      -----------------------------------------------------
+      ${result.error.toString()}
+      ${result is ResultHasStack ? (result as ResultHasStack).stackTrace.toString() : StackTrace.current.toString()}
+      #############################################################''');
+      throw NegativeResult(error: result.error);
+    }
+  }
+
+  Future<Result<T>> setTimeoutError({required Duration timeout, Oration message = const FixedOration(message: 'The function took too long and was canceled')}) {
+    final heart = LifeCoordinator.tryGetZoneHeart;
+
+    if (heart == null) {
+      return separateExecution(
+        function: () => setTimeoutError(timeout: timeout, message: message),
+      );
+    } else {
+      return this.timeout(
+        timeout,
+        onTimeout: () {
+          heart.dispose();
+          return NegativeResult.controller(code: ErrorCode.timeout, message: message);
+        },
+      );
+    }
   }
 }
 
