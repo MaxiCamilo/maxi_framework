@@ -101,20 +101,22 @@ class FileReference implements DirectoryReference {
   const FileReference({required this.isLocal, required this.name, required this.router});
 
   FileOperator buildOperator() => appManager.buildFileOperator(this);
+
+  
 }
 
 abstract interface class FileOperator {
   FileReference get fileReference;
 
   Future<Result<bool>> exists();
-  Future<Result<void>> create();
+  Future<Result<void>> create({bool createFolderRoute = false});
   Future<Result<FileOperator>> copy({required FolderReference destination});
   Future<Result<void>> delete();
   Future<Result<int>> obtainSize();
   Future<Result<List<int>>> read({int? maxSize});
   Future<Result<List<int>>> readPartially({required int from, required int amount});
   Future<Result<String>> readText({Encoding? encoder, int? maxSize});
-  Future<Result<void>> white({required List<int> content});
+  Future<Result<void>> write({required List<int> content});
   Future<Result<void>> writeText({required String content, Encoding? encoder});
 
   FutureResult<String> obtainCompleteRoute();

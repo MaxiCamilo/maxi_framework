@@ -28,11 +28,12 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
   }
 
   @override
-  Future<Result<FolderReference>> copy({required FolderReference destination}) => managedFunction((heart) async {
+  Future<Result<FolderReference>> copy({required FolderReference destination}) async {
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final isExists = await exists().connect();
+    final isExists = await exists().checkCancelation();
+
     if (isExists.itsFailure) return isExists.cast();
     if (!isExists.content) {
       return NegativeResult.controller(
@@ -45,17 +46,18 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
 
     //final createdParent = await parentOperator.create().connect();
     //if (createdParent.itsFailure) return createdParent.cast();
+    return usingHeart((heart) async {
+      final newPatch = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
+      final createdPatch = await newPatch.create().checkCancelation();
+      if (createdPatch.itsFailure) return createdPatch.cast();
 
-    final newPatch = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
-    final createdPatch = await newPatch.create().connect();
-    if (createdPatch.itsFailure) return createdPatch.cast();
-
-    return managedFunction((heart) async {
       final dir = Directory(newPatch.nativeDirectRoute);
 
       await for (final entity in dir.list(recursive: true, followLinks: true)) {
         if (heart.itWasDiscarded) {
-          return CancelationResult();
+          final cancel = CancelationResult<FolderReference>();
+          (appManager as ApplicationManager).exceptionChannel.sendItem((cancel, StackTrace.current));
+          return cancel;
         }
 
         final relative = p.relative(entity.path, from: nativeDirectRoute);
@@ -108,36 +110,80 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
 
       return ResultValue(content: destination);
     });
-  });
+  }
 
   FutureResult<bool> existFolderLocation() async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final folerResult = FolderReference.interpretRoute(route: nativeLocationRoute, isLocal: false);
-    if (folerResult.itsFailure) return folerResult.cast();
+    if (folderReference.router.isEmpty) {
+      return true.asResultValue();
+    }
 
-    final folder = folerResult.content;
-    final folderOperator = NativeFolderOperator(folderReference: folder, appManager: appManager);
-    return await folderOperator.exists().connect();
+    final mainFolderOperatorResult = folderReference.obtainFolderLocation();
+    if (mainFolderOperatorResult.itsFailure) return mainFolderOperatorResult.cast();
+    final mainFolderOperator = mainFolderOperatorResult.content;
+
+    if (mainFolderOperator.router.isEmpty) {
+      return true.asResultValue();
+    }
+
+    return mainFolderOperator.buildOperator().exists().checkCancelation();
   }
 
-  @override
-  Future<Result<void>> create() => managedFunction((heart) async {
+  FutureResult<void> _createFolderLocation() async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final existFolderLocationResult = await existFolderLocation();
+    final routes = <FolderReference>[];
+    FolderReference current = folderReference;
+
+    do {
+      if (current.router.isEmpty) {
+        break;
+      }
+      final parentResult = current.obtainFolderLocation();
+      if (parentResult.itsFailure) return parentResult.cast();
+      current = parentResult.content;
+
+      final existFolder = await current.buildOperator().exists().checkCancelation();
+      if (existFolder.itsFailure) return existFolder.cast();
+      if (existFolder.content) {
+        break;
+      }
+
+      routes.add(current);
+    } while (true);
+
+    for (int i = routes.length - 1; i >= 0; i--) {
+      final createResult = await routes[i].buildOperator().create(createFolderRoute: false).checkCancelation();
+      if (createResult.itsFailure) return createResult.cast();
+    }
+
+    return voidResult;
+  }
+
+  @override
+  Future<Result<void>> create({bool createFolderRoute = false}) async {
+    final initializationResult = await initialize().checkCancelation();
+    if (initializationResult.itsFailure) return initializationResult.cast();
+
+    final existFolderLocationResult = await existFolderLocation().checkCancelation();
     if (existFolderLocationResult.itsFailure) return existFolderLocationResult.cast();
 
     if (!existFolderLocationResult.content) {
-      return NegativeResult.controller(
-        code: ErrorCode.nonExistent,
-        message: FlexibleOration(message: 'The folder location %1 does not exist. So the folder %2 cannot be created', textParts: [nativeLocationRoute, nativeDirectRoute]),
-      );
+      if (createFolderRoute) {
+        final createFolderResult = await _createFolderLocation();
+        if (createFolderResult.itsFailure) return createFolderResult.cast();
+      } else {
+        return NegativeResult.controller(
+          code: ErrorCode.nonExistent,
+          message: FlexibleOration(message: 'The folder location %1 does not exist. So the folder %2 cannot be created', textParts: [nativeLocationRoute, nativeDirectRoute]),
+        );
+      }
     }
 
-    final isExists = await exists().connect();
+    final isExists = await exists().checkCancelation();
     if (isExists.itsFailure) return isExists.cast();
     if (isExists.content) return voidResult;
 
@@ -151,14 +197,14 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
         await folder.create(recursive: true);
       },
     );
-  });
+  }
 
   @override
-  Future<Result<void>> delete() => managedFunction((heart) async {
-    final initializationResult = await initialize();
+  Future<Result<void>> delete() async {
+    final initializationResult = await initialize().checkCancelation();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final isExists = await exists().connect();
+    final isExists = await exists().checkCancelation();
     if (isExists.itsFailure) return isExists.cast();
     if (!isExists.content) return voidResult;
 
@@ -171,12 +217,13 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
         final folder = Directory(nativeDirectRoute);
         await folder.delete(recursive: true);
       },
-    );
-  });
+    ).checkCancelation();
+  }
 
   @override
-  Future<Result<bool>> exists() => managedFunction((heart) async {
-    final initializationResult = await initialize();
+  Future<Result<bool>> exists() async {
+    final initializationResult = await initialize().checkCancelation();
+
     if (initializationResult.itsFailure) return initializationResult.cast();
 
     return await volatileFuture(
@@ -189,14 +236,14 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
         return folder.exists();
       },
     );
-  });
+  }
 
   @override
-  Future<Result<bool>> itHasContent() => managedFunction((heart) async {
+  Future<Result<bool>> itHasContent() async {
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final isExists = await exists().connect();
+    final isExists = await exists().checkCancelation();
     if (isExists.itsFailure) return isExists.cast();
 
     if (!isExists.content) {
@@ -218,14 +265,14 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
         return false;
       },
     );
-  });
+  }
 
   @override
-  Future<Result<int>> obtainSize() => managedFunction((heart) async {
-    final initializationResult = await initialize();
+  Future<Result<int>> obtainSize() async {
+    final initializationResult = await initialize().checkCancelation();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final isExists = await exists().connect();
+    final isExists = await exists().checkCancelation();
     if (isExists.itsFailure) return isExists.cast();
 
     if (!isExists.content) {
@@ -235,17 +282,19 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
       );
     }
 
-    int size = 0;
-    await for (final entity in Directory(nativeDirectRoute).list(recursive: true, followLinks: false)) {
-      if (heart.itWasDiscarded) {
-        return CancelationResult();
+    return usingHeart((heart) async {
+      int size = 0;
+      await for (final entity in Directory(nativeDirectRoute).list(recursive: true, followLinks: false)) {
+        if (heart.itWasDiscarded) {
+          return CancelationResult();
+        }
+        if (entity is File) {
+          size += await entity.length();
+        }
       }
-      if (entity is File) {
-        size += await entity.length();
-      }
-    }
-    return ResultValue(content: size);
-  });
+      return ResultValue(content: size);
+    });
+  }
 
   @override
   Stream<FileReference> obtainFiles() async* {

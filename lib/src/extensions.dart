@@ -5,3 +5,4 @@ export 'extensions/stream_extensions.dart';
 export 'extensions/string_extensions.dart';
 export 'extensions/map_extensions.dart';
 export 'extensions/disponable_extensions.dart';
+export 'extensions/list_int_extensions.dart';

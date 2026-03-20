@@ -50,11 +50,15 @@ extension StreamExtensions<T> on Stream<T> {
       final heart = LifeCoordinator.tryGetZoneHeart;
       if (heart != null) {
         if (heart.itWasDiscarded) {
-          return CancelationResult();
+          final cancel = CancelationResult<T>();
+          appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+          return cancel;
         }
         heartCanceled = heart.onDispose.whenComplete(() {
           if (!waiter.isCompleted) {
-            waiter.complete(CancelationResult());
+            final cancel = CancelationResult<T>();
+            appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+            waiter.complete(cancel);
           }
         });
       }

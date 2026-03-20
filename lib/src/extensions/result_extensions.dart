@@ -3,28 +3,6 @@ import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
-Future<Result<T>> separateExecution<T>({required FutureOr<Result<T>> Function() function, void Function(LifeCoordinator heart)? onHeartCreated}) async {
-  final complete = Completer<Result<T>>();
-  scheduleMicrotask(() async {
-    final newOperator = AsyncExecutor<T>(function: function, onHeartCreated: onHeartCreated, connectToZone: false);
-    final result = await newOperator.waitResult();
-    complete.complete(result);
-  });
-
-  return complete.future;
-}
-
-Future<Result<T>> managedFunction<T>(FutureOr<Result<T>> Function(LifeCoordinator heart) function) async {
-  final heart = LifeCoordinator.tryGetZoneHeart;
-
-  if (heart == null) {
-    final newOperator = AsyncExecutor<T>(function: () => function(LifeCoordinator.zoneHeart));
-    return newOperator.waitResult();
-  } else {
-    return function(heart);
-  }
-}
-
 Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required T Function() function}) {
   try {
     return ResultValue(content: function());
@@ -34,58 +12,32 @@ Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrac
   }
 }
 
-Future<Result<T>> volatileFuture<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required FutureOr<T> Function() function, FutureOr<void> Function()? onDone, FutureOr<void> Function()? onError}) async {
-  bool onDoneCalled = false;
-  final heart = LifeCoordinator.tryGetZoneHeart;
-
-  if (heart == null) {
-    return managedFunction<T>((heart) => volatileFuture(error: error, function: function, onDone: onDone, onError: onError));
-  }
-
+FutureResult<T> volatileFuture<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required FutureOr<T> Function() function}) async {
   try {
-    if (heart.itWasDiscarded) {
-      if (onDone != null) {
-        onDoneCalled = true;
-        await onDone();
-      }
-      return CancelationResult();
-    }
-
-    final result = ResultValue<T>(content: await function());
-    if (onDone != null) {
-      onDoneCalled = true;
-      await onDone();
-    }
-
-    if (heart.itWasDiscarded) {
-      return CancelationResult();
-    }
-
-    return result;
+    final future = await function();
+    return ResultValue(content: future);
   } catch (ex, st) {
+    final resultError = error(ex, st);
     appManager.exceptionChannel.sendItem((ex, st));
-    if (onDone != null && !onDoneCalled) {
-      try {
-        await onDone();
-      } catch (ex, st) {
-        log('[VolatileFuture] Error in onDone! $ex');
-        return error(ex, st);
-      }
-    }
-
-    if (onError != null) {
-      try {
-        await onError();
-      } catch (ex, st) {
-        log('[VolatileFuture] Error in onError! $ex');
-        return error(ex, st);
-      }
-    }
-    return error(ex, st);
+    return resultError;
   }
 }
 
 extension ExtensionResult<T> on Result<T> {
+  Result<T> checkCancelation() {
+    if (itsFailure) {
+      return this;
+    }
+
+    if (LifeCoordinator.isZoneHeartCanceled) {
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
+    }
+
+    return this;
+  }
+
   Result<R> whenCast<I, R>(Result<R> Function(I) func) {
     if (itsFailure) return cast<R>();
 
@@ -200,22 +152,6 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
-  Future<Result<T>> whenItsCorrectVoid(FutureOr<void> Function(T x) func) async {
-    if (itsCorrect) {
-      final result = await volatileFuture<void>(
-        error: (ex, st) => ExceptionResult<void>(
-          exception: ex,
-          stackTrace: st,
-          message: const FixedOration(message: 'Internal error: A chained function failed'),
-        ),
-        function: () => func(content),
-      ).logIfFails();
-      return result.itsCorrect ? this : result.cast<T>();
-    } else {
-      return cast<T>();
-    }
-  }
-
   Result<void> ignoreContent() {
     if (itsCorrect) {
       return voidResult;
@@ -293,66 +229,78 @@ extension AllNullabletResultExtensions on Object? {
 }
 
 extension FutureWithoutResultExtensions<T> on Future<T> {
-  Future<Result<T>> toFutureResult() async {
+  Future<Result<T>> toFutureResult({Oration? errorMessage}) async {
     try {
       final value = await this;
       return ResultValue<T>(content: value);
     } catch (ex, st) {
+      appManager.exceptionChannel.sendItem((ex, st));
       return ExceptionResult<T>(
         exception: ex,
         stackTrace: st,
-        message: const FixedOration(message: 'Internal error: A chained asynchronous function failed'),
-      );
-    }
-  }
-
-  Future<Result<T>> makeCancelable({required Duration timeout, Oration message = const FixedOration(message: 'The function took too long and was canceled')}) async {
-    final heart = LifeCoordinator.tryGetZoneHeart;
-    if (heart == null) {
-      return managedFunction(
-        (heart) => then<Result<T>>((value) => ResultValue<T>(content: value)).timeout(
-          timeout,
-          onTimeout: () {
-            heart.dispose();
-            return NegativeResult<T>.controller(code: ErrorCode.timeout, message: message);
-          },
-        ),
-      );
-    } else {
-      return then<Result<T>>((value) => ResultValue<T>(content: value)).timeout(
-        timeout,
-        onTimeout: () {
-          heart.dispose();
-          return NegativeResult<T>.controller(code: ErrorCode.timeout, message: message);
-        },
+        message: errorMessage ?? const FixedOration(message: 'Internal error: A chained asynchronous function failed'),
       );
     }
   }
 }
 
 extension FutureResultExtensions<T> on Future<Result<T>> {
-  FutureResult<T> separateHeart() {
-    return separateExecution(function: () => this);
+  Future<Result<T>> separateExecution() {
+    final completer = Completer<Result<T>>();
+
+    scheduleMicrotask(() async {
+      final asynExecutor = AsyncExecutor(function: () => this, connectToZone: false);
+      final result = await asynExecutor.waitResult();
+      completer.complete(result);
+    });
+
+    return completer.future;
   }
 
-  Future<Result<T>> connect() async {
-    final heart = LifeCoordinator.tryGetZoneHeart;
-
-    if (heart == null) {
-      return await AsyncExecutor(function: () => this).waitResult();
-    }
-
-    if (heart.itWasDiscarded) {
-      return CancelationResult();
+  Future<Result<T>> checkCancelation() async {
+    if (LifeCoordinator.isZoneHeartCanceled) {
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     final result = await this;
-
-    if (heart.itWasDiscarded) {
-      return CancelationResult();
+    if (result.itsCorrect && LifeCoordinator.isZoneHeartCanceled) {
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     return result;
+  }
+
+  Future<Result<T>> breakIfCanceled({FutureOr<void> Function()? onCancel}) async {
+    if (LifeCoordinator.isZoneHeartCanceled) {}
+
+    final heart = LifeCoordinator.tryGetZoneHeart;
+    if (heart != null) {
+      if (heart.itWasDiscarded) {
+        final cancel = CancelationResult<T>();
+        appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+        return cancel;
+      }
+      final completer = Completer<Result<T>>();
+      final onDone = heart.onDispose.whenComplete(() {
+        if (!completer.isCompleted) {
+          final cancel = CancelationResult<T>();
+          appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+          completer.complete(cancel);
+        }
+      });
+
+      final result = await this;
+      onDone.ignore();
+
+      return result;
+    } else {
+      final result = await this;
+      return result;
+    }
   }
 
   Future<Result<R>> castFuture<R>() async {
@@ -391,9 +339,7 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     final heart = LifeCoordinator.tryGetZoneHeart;
 
     if (heart == null) {
-      return separateExecution(
-        function: () => cancelIn(timeout: timeout, message: message),
-      );
+      return separateExecution().cancelIn(timeout: timeout, message: message);
     } else {
       return this.timeout(
         timeout,
@@ -520,9 +466,7 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     final heart = LifeCoordinator.tryGetZoneHeart;
 
     if (heart == null) {
-      return separateExecution(
-        function: () => setTimeoutError(timeout: timeout, message: message),
-      );
+      return separateExecution().setTimeoutError(timeout: timeout, message: message);
     } else {
       return this.timeout(
         timeout,
@@ -571,26 +515,6 @@ extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
 }
 
 extension FutureOrResultExtensions<T> on FutureOr<Result<T>> {
-  Future<Result<T>> connect() async {
-    final heart = LifeCoordinator.tryGetZoneHeart;
-
-    if (heart == null) {
-      return await AsyncExecutor(function: () => this).waitResult();
-    }
-
-    if (heart.itWasDiscarded) {
-      return CancelationResult();
-    }
-
-    final result = await this;
-
-    if (heart.itWasDiscarded) {
-      return CancelationResult();
-    }
-
-    return result;
-  }
-
   Future<Result<void>> ignoreFutureContent() async {
     final result = await this;
     if (result.itsCorrect) {

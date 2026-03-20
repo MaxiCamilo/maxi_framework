@@ -15,6 +15,8 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
   String nativeLocationRoute = '';
   String nativeDirectRoute = '';
 
+  late FolderOperator folderOperator;
+
   NativeFileOperator({required this.fileReference, required this.appManager});
 
   @override
@@ -25,84 +27,90 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
     nativeLocationRoute = processRouteResult.content.$1;
     nativeDirectRoute = processRouteResult.content.$2;
 
+    final folderResult = fileReference.obtainFolderLocation();
+    if (folderResult.itsFailure) return folderResult.cast();
+    folderOperator = NativeFolderOperator(folderReference: folderResult.content, appManager: appManager);
+
     return voidResult;
   }
 
   @override
-  Future<Result<FileOperator>> copy({required FolderReference destination}) => managedFunction((heart) async {
-    final initializationResult = await initialize();
+  Future<Result<FileOperator>> copy({required FolderReference destination}) async {
+    final initializationResult = await initialize().checkCancelation();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final destinationOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
+    return await usingHeart((hearth) async {
+      final destinationOperator = hearth.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
 
-    final existsFolder = await destinationOperator.exists().connect();
+      final existsFolder = await destinationOperator.exists().checkCancelation();
 
-    if (!existsFolder.itsCorrect) return existsFolder.cast();
-    if (!existsFolder.content) {
-      final createdFolder = await destinationOperator.create().connect();
-      if (!createdFolder.itsCorrect) return createdFolder.cast();
-      /*
+      if (!existsFolder.itsCorrect) return existsFolder.cast();
+      if (!existsFolder.content) {
+        final createdFolder = await destinationOperator.create(createFolderRoute: true).checkCancelation();
+        if (!createdFolder.itsCorrect) return createdFolder.cast();
+        /*
       return NegativeResult.controller(
         code: ErrorCode.contextInvalidFunctionality,
         message: FlexibleOration(message: 'The file %1 could not be copied because it does not exist', textParts: [nativeRoute]),
       );*/
-    }
+      }
 
-    final creatorResult = await destinationOperator.create().connect();
-    if (!creatorResult.itsCorrect) return creatorResult.cast();
+      final creatorResult = await destinationOperator.create().checkCancelation();
+      if (!creatorResult.itsCorrect) return creatorResult.cast();
 
-    final newFile = NativeFileOperator(
-      fileReference: FileReference(isLocal: fileReference.isLocal, name: fileReference.name, router: destination.completeRoute),
-      appManager: appManager,
-    );
+      final newFile = NativeFileOperator(
+        fileReference: FileReference(isLocal: fileReference.isLocal, name: fileReference.name, router: destination.completeRoute),
+        appManager: appManager,
+      );
 
-    final existsFile = await newFile.exists().connect();
-    if (!existsFile.itsCorrect) return existsFile.cast();
+      final existsFile = await newFile.exists().checkCancelation();
+      if (!existsFile.itsCorrect) return existsFile.cast();
 
-    if (existsFile.content) {
-      final deleteFile = await newFile.delete().connect();
-      if (!deleteFile.itsCorrect) return deleteFile.cast();
-    }
+      if (existsFile.content) {
+        final deleteFile = await newFile.delete().checkCancelation();
+        if (!deleteFile.itsCorrect) return deleteFile.cast();
+      }
 
-    return await volatileFuture<FileOperator>(
-      error: (ex, st) => NegativeResult.controller(
-        code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'The file %1 could not be copied; the system returned an error: %2', textParts: [nativeDirectRoute, ex.toString()]),
-      ),
+      return await volatileFuture<FileOperator>(
+        error: (ex, st) => NegativeResult.controller(
+          code: ErrorCode.externalFault,
+          message: FlexibleOration(message: 'The file %1 could not be copied; the system returned an error: %2', textParts: [nativeDirectRoute, ex.toString()]),
+        ),
 
-      function: () async {
-        final instance = File(nativeDirectRoute);
-        await instance.copy(destinationOperator.nativeDirectRoute);
-        return newFile;
-      },
-    );
-  });
+        function: () async {
+          final instance = File(nativeDirectRoute);
+          await instance.copy(destinationOperator.nativeDirectRoute);
+          return newFile;
+        },
+      ).checkCancelation();
+    });
+  }
 
   FutureResult<bool> existFolderLocation() async {
-    final initializationResult = await initialize();
+    final initializationResult = await initialize().checkCancelation();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final folerResult = FolderReference.interpretRoute(route: nativeLocationRoute, isLocal: false);
-    if (folerResult.itsFailure) return folerResult.cast();
-
-    final folder = folerResult.content;
-    final folderOperator = NativeFolderOperator(folderReference: folder, appManager: appManager);
-    return await folderOperator.exists().connect();
+    return folderOperator.exists().checkCancelation();
   }
 
   @override
-  Future<Result<void>> create() async {
-    final initializationResult = await initialize();
+  Future<Result<void>> create({bool createFolderRoute = false}) async {
+    final initializationResult = await initialize().checkCancelation();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final existFolderLocationResult = await existFolderLocation().connect();
+    final existFolderLocationResult = await existFolderLocation().checkCancelation();
     if (existFolderLocationResult.itsFailure) return existFolderLocationResult.cast();
 
     if (!existFolderLocationResult.content) {
-      return NegativeResult.controller(
-        code: ErrorCode.nonExistent,
-        message: FlexibleOration(message: 'The folder location %1 does not exist. So the file %2 cannot be created', textParts: [nativeLocationRoute, nativeDirectRoute]),
-      );
+      if (createFolderRoute) {
+        final createFolderResult = await folderOperator.create(createFolderRoute: true).checkCancelation();
+        if (createFolderResult.itsFailure) return createFolderResult.cast();
+      } else {
+        return NegativeResult.controller(
+          code: ErrorCode.nonExistent,
+          message: FlexibleOration(message: 'The folder location %1 does not exist. So the file %2 cannot be created', textParts: [nativeLocationRoute, nativeDirectRoute]),
+        );
+      }
     }
 
     if (!await File(nativeDirectRoute).exists()) {
@@ -121,10 +129,10 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
 
   @override
   Future<Result<void>> delete() async {
-    final initializationResult = await initialize();
+    final initializationResult = await initialize().checkCancelation();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final existsFile = await exists().connect();
+    final existsFile = await exists().checkCancelation();
     if (existsFile.itsFailure) return existsFile.cast();
 
     if (existsFile.content) {
@@ -159,7 +167,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
     final initializationResult = await initialize();
     if (initializationResult.itsFailure) return initializationResult.cast();
 
-    final existsFile = await exists().connect();
+    final existsFile = await exists().checkCancelation();
     if (existsFile.itsFailure) return existsFile.cast();
 
     if (!existsFile.content) {
@@ -177,15 +185,15 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
 
   @override
   Future<Result<List<int>>> read({int? maxSize}) async {
-    final initializationResult = await initialize();
+    final initializationResult = await initialize().checkCancelation();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final existsFile = await exists().connect();
+    final existsFile = await exists().checkCancelation();
     if (!existsFile.itsCorrect) return existsFile.cast();
 
     if (existsFile.content) {
       if (maxSize != null) {
-        final actualSize = await obtainSize().connect();
+        final actualSize = await obtainSize().checkCancelation();
         if (!actualSize.itsCorrect) return actualSize.cast();
 
         if (actualSize.content > maxSize) {
@@ -207,7 +215,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
         function: () => File(nativeDirectRoute).readAsBytes(),
       );
     } else {
-      final createdFile = await create().connect();
+      final createdFile = await create().checkCancelation();
       if (!createdFile.itsCorrect) return createdFile.cast();
 
       return ResultValue(content: Uint8List.fromList(const []));
@@ -220,10 +228,10 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
       return ResultValue(content: Uint8List.fromList([]));
     }
 
-    final initializationResult = await initialize();
+    final initializationResult = await initialize().checkCancelation();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final fileSize = await obtainSize().connect();
+    final fileSize = await obtainSize().checkCancelation();
     if (fileSize.itsFailure) return fileSize.cast();
 
     if (fileSize.content == 0) {
@@ -255,13 +263,12 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
     if (createdLector.itsFailure) return createdLector.cast();
 
     final positionResult = await volatileFuture(
-      onError: () => createdLector.content.close(),
       error: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
         message: FlexibleOration(message: 'Could not position the file reader %1, the system reported: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () => createdLector.content.setPosition(from),
-    );
+    ).injectNegativeLogic((_) => createdLector.content.close());
 
     if (positionResult.itsFailure) return positionResult.cast();
 
@@ -271,8 +278,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
         message: FlexibleOration(message: 'Could not read part of file %1, the system reported: %2', textParts: [nativeDirectRoute, ex.toString()]),
       ),
       function: () => createdLector.content.read(amount),
-      onDone: () => createdLector.content.close(),
-    );
+    ).whenComplete(() => createdLector.content.close());
   }
 
   @override
@@ -280,12 +286,12 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
     final initializationResult = await initialize();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final existsFile = await exists().connect();
+    final existsFile = await exists().checkCancelation();
     if (!existsFile.itsCorrect) return existsFile.cast();
 
     if (existsFile.content) {
       if (maxSize != null) {
-        final actualSize = await obtainSize().connect();
+        final actualSize = await obtainSize().checkCancelation();
         if (!actualSize.itsCorrect) return actualSize.cast();
 
         if (actualSize.content > maxSize) {
@@ -307,7 +313,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
         function: () => File(nativeDirectRoute).readAsString(encoding: encoder ?? utf8),
       );
     } else {
-      final createdFile = await create().connect();
+      final createdFile = await create().checkCancelation();
       if (!createdFile.itsCorrect) return createdFile.cast();
 
       return ResultValue(content: '');
@@ -315,62 +321,66 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
   }
 
   @override
-  Future<Result<void>> white({required List<int> content}) => managedFunction((heart) async {
-    final initializationResult = await initialize();
+  Future<Result<void>> write({required List<int> content}) async {
+    final initializationResult = await initialize().checkCancelation();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final isExists = await exists();
+    final isExists = await exists().checkCancelation();
     if (isExists.itsFailure) return isExists.cast();
 
-    if (!isExists.content) {
-      final folder = await FolderReference.fromFile(file: fileReference);
-      if (folder.itsFailure) return folder.cast();
+    return usingHeart((heart) async {
+      if (!isExists.content) {
+        final folder = await FolderReference.fromFile(file: fileReference).checkCancelation();
+        if (folder.itsFailure) return folder.cast();
 
-      final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
+        final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
 
-      final createdFolder = await folderOperator.create();
-      if (!createdFolder.itsCorrect) return createdFolder.cast();
-    }
+        final createdFolder = await folderOperator.create().checkCancelation();
+        if (!createdFolder.itsCorrect) return createdFolder.cast();
+      }
 
-    final creationResult = await volatileFuture(
-      error: (ex, st) => NegativeResult.controller(
-        code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeDirectRoute, ex.toString()]),
-      ),
-      function: () => File(nativeDirectRoute).writeAsBytes(content),
-    );
+      final creationResult = await volatileFuture(
+        error: (ex, st) => NegativeResult.controller(
+          code: ErrorCode.externalFault,
+          message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeDirectRoute, ex.toString()]),
+        ),
+        function: () => File(nativeDirectRoute).writeAsBytes(content),
+      ).checkCancelation();
 
-    return creationResult.itsCorrect ? voidResult : creationResult.cast();
-  });
+      return creationResult.itsCorrect ? voidResult : creationResult.cast();
+    });
+  }
 
   @override
-  Future<Result<void>> writeText({required String content, Encoding? encoder}) => managedFunction((heart) async {
-    final initializationResult = await initialize();
+  Future<Result<void>> writeText({required String content, Encoding? encoder}) async {
+    final initializationResult = await initialize().checkCancelation();
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
-    final isExists = await exists();
+    final isExists = await exists().checkCancelation();
     if (isExists.itsFailure) return isExists.cast();
 
-    if (!isExists.content) {
-      final folder = await FolderReference.fromFile(file: fileReference);
-      if (folder.itsFailure) return folder.cast();
+    return usingHeart((heart) async {
+      if (!isExists.content) {
+        final folder = await FolderReference.fromFile(file: fileReference).checkCancelation();
+        if (folder.itsFailure) return folder.cast();
 
-      final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
+        final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
 
-      final createdFolder = await folderOperator.create();
-      if (!createdFolder.itsCorrect) return createdFolder.cast();
-    }
+        final createdFolder = await folderOperator.create().checkCancelation();
+        if (!createdFolder.itsCorrect) return createdFolder.cast();
+      }
 
-    final creationResult = await volatileFuture(
-      error: (ex, st) => NegativeResult.controller(
-        code: ErrorCode.externalFault,
-        message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeDirectRoute, ex.toString()]),
-      ),
-      function: () => File(nativeDirectRoute).writeAsString(content),
-    );
+      final creationResult = await volatileFuture(
+        error: (ex, st) => NegativeResult.controller(
+          code: ErrorCode.externalFault,
+          message: FlexibleOration(message: 'Failed to write the information to file %1, as a system error occurred in %2', textParts: [nativeDirectRoute, ex.toString()]),
+        ),
+        function: () => File(nativeDirectRoute).writeAsString(content),
+      );
 
-    return creationResult.itsCorrect ? voidResult : creationResult.cast();
-  });
+      return creationResult.itsCorrect ? voidResult : creationResult.cast();
+    });
+  }
 
   @override
   FutureResult<String> obtainCompleteRoute() async {

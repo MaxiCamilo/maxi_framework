@@ -56,7 +56,9 @@ class Mutex with DisposableMixin, InitializableMixin {
       if (currentHeart != null && !currentHeart.itWasDiscarded) {
         onDisposeHeart = currentHeart.onDispose.whenComplete(() {
           _queue.remove(waiter);
-          waiter.completeError(CancelationResult());
+          final cancel = CancelationResult();
+          appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+          waiter.completeError(cancel);
         });
       }
 
@@ -67,7 +69,9 @@ class Mutex with DisposableMixin, InitializableMixin {
 
   Future<Result<T>> executeAsyncResult<T>(AsyncResult<T> executor) async {
     if (itWasDiscarded) {
-      return CancelationResult();
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     final whenDispose = onDispose.whenComplete(() => executor.dispose());

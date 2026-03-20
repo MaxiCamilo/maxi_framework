@@ -5,7 +5,7 @@ import 'package:meta/meta.dart';
 
 abstract interface class Functionality<T> {
   Future<Result<T>> execute();
-  AsyncExecutor<T> separateExecution();
+  Future<Result<T>> separateExecution();
 
   AsyncExecutor<T> interactiveExecution<I>({required void Function(I) onItem});
 }
@@ -52,6 +52,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
     try {
       result = await runInternalFuncionality();
       if (result is CancelationResult) {
+        appManager.exceptionChannel.sendItem((result, StackTrace.current));
         onCancel();
       } else {
         if (result.itsCorrect) {
@@ -80,8 +81,8 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   }
 
   @override
-  AsyncExecutor<T> separateExecution() {
-    return AsyncExecutor(function: execute);
+  Future<Result<T>> separateExecution() {
+    return AsyncExecutor(function: execute).waitResult();
   }
 
   @override

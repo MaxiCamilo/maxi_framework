@@ -82,13 +82,12 @@ void main() {
 
     test('Test functionalities', () async {
       final func = const SyncFunctionality(name: 'Maxitito', age: 30);
-      final waiter = func.separateExecution();
       /*
       Future.delayed(const Duration(seconds: 5)).whenComplete(() {
         waiter.dispose();
       });*/
 
-      final result = await waiter.waitResult();
+      final result = await func.separateExecution();
 
       if (result.itsCorrect) {
         print('Result: ${result.content}');

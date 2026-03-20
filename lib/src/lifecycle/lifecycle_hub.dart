@@ -211,9 +211,37 @@ mixin LifecycleHub on DisposableMixin {
     _disponsableManualObjects!.add(func);
   }
 
+  FutureResult<T> waitCompleter<T>(Completer<T> completer) async {
+    if (itWasDiscarded) {
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      if (!completer.isCompleted) {
+        completer.completeError(cancel, StackTrace.current);
+      }
+      return cancel;
+    }
+
+    resurrectObject();
+
+    final onDisponseBefore = onDispose.whenComplete(() {
+      final cancel = CancelationResult<T>();
+      if (!completer.isCompleted) {
+        completer.completeError(cancel, StackTrace.current);
+      }
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+    });
+
+    final futureResult = await completer.future.toFutureResult();
+    onDisponseBefore.ignore();
+
+    return futureResult;
+  }
+
   Future<Result<T>> waitFuture<T>({required Future<T> Function() function}) async {
     if (itWasDiscarded) {
-      return CancelationResult();
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     resurrectObject();
@@ -230,7 +258,11 @@ mixin LifecycleHub on DisposableMixin {
         );
     final done = onDispose.whenComplete(() {
       executor.ignore();
-      completer.complete(CancelationResult());
+      final cancel = CancelationResult<T>();
+      if (!completer.isCompleted) {
+        completer.complete(cancel);
+      }
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
     });
 
     final futureResult = await completer.future;
@@ -242,7 +274,9 @@ mixin LifecycleHub on DisposableMixin {
 
   Future<Result<T>> waitFutureResult<T>({required Future<Result<T>> Function() function}) async {
     if (itWasDiscarded) {
-      return CancelationResult();
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     resurrectObject();
@@ -259,9 +293,11 @@ mixin LifecycleHub on DisposableMixin {
         );
     final done = onDispose.whenComplete(() {
       executor.ignore();
+      final cancel = CancelationResult<T>();
       if (!completer.isCompleted) {
-        completer.complete(CancelationResult());
+        completer.complete(cancel);
       }
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
     });
 
     final futureResult = await completer.future;
@@ -297,7 +333,9 @@ mixin LifecycleHub on DisposableMixin {
 
   Future<Result<T>> waitAsyncResult<T>(AsyncResult<T> asyncResult) async {
     if (itWasDiscarded) {
-      return CancelationResult<T>();
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     resurrectObject();

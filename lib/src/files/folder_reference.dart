@@ -100,7 +100,7 @@ abstract interface class FolderOperator {
   FolderReference get folderReference;
 
   Future<Result<bool>> exists();
-  Future<Result<void>> create();
+  Future<Result<void>> create({bool createFolderRoute = false});
   Future<Result<FolderReference>> copy({required FolderReference destination});
   Future<Result<void>> delete();
   Future<Result<bool>> itHasContent();

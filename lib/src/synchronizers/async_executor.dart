@@ -81,13 +81,17 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     _isActive = true;
     if (itWasDiscarded) {
       _isActive = false;
-      return CancelationResult<T>();
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     if (_heartDispose) {
       _onHeartDispose?.ignore();
       _isActive = false;
-      return CancelationResult<T>();
+      final cancel = CancelationResult<T>();
+      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      return cancel;
     }
 
     final heart = LifeCoordinator();
