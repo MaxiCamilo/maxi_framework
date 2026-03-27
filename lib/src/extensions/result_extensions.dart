@@ -3,6 +3,15 @@ import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
+Result<T> tryFunction<T>(Oration message, T Function() func) {
+  try {
+    return ResultValue(content: func());
+  } catch (ex, st) {
+    appManager.exceptionChannel.sendItem((ex, st));
+    return ExceptionResult(exception: ex, stackTrace: st, message: message);
+  }
+}
+
 Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required T Function() function}) {
   try {
     return ResultValue(content: function());

@@ -23,7 +23,11 @@ extension DirectoryReferenceExtension on DirectoryReference {
     }
 
     final newName = slashSplit.removeLast();
-    final newRouter = slashSplit.join('/');
+    String newRouter = slashSplit.join('/');
+
+    if (!isLocal && router.first == '/' && newRouter.first != '/') {
+      newRouter = '/$newRouter';
+    }
 
     return FolderReference(isLocal: isLocal, name: newName, router: newRouter).asResultValue();
   }

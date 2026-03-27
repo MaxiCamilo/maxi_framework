@@ -34,6 +34,7 @@ mixin DisposableMixin implements Disposable {
   //}
 
   @override
+  @nonVirtual
   void dispose() {
     maxi_dispose();
   }
@@ -60,16 +61,20 @@ mixin DisposableMixin implements Disposable {
   @nonVirtual
   Result<void> failIfItsDiscarded() {
     if (_itWasDiscarded) {
-      return NegativeResult.controller(code: ErrorCode.discontinuedFunctionality , message: const FixedOration(message: 'The object was discarded and can not be used anymore'));
+      return NegativeResult.controller(
+        code: ErrorCode.discontinuedFunctionality,
+        message: const FixedOration(message: 'The object was discarded and can not be used anymore'),
+      );
     } else {
       return voidResult;
-      
     }
   }
 
   @protected
   void performResurrection() {}
 
+  @nonVirtual
+  @internal
   // ignore: non_constant_identifier_names
   void maxi_dispose() {
     if (_itWasDiscarded) {

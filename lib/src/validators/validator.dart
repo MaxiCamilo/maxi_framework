@@ -1,4 +1,5 @@
 import 'package:maxi_framework/maxi_framework.dart';
+import 'package:meta/meta.dart';
 
 abstract interface class Validator {
   Result<void> validateValue({required dynamic value});
@@ -7,6 +8,7 @@ abstract interface class Validator {
 abstract class SpecificTypeValidator<T> implements Validator {
   const SpecificTypeValidator();
 
+  @protected
   Result<void> validateWithValue({required T value});
 
   @override

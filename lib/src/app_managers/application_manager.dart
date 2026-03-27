@@ -1,6 +1,6 @@
 import 'package:maxi_framework/maxi_framework.dart';
 
-import 'factories/app_factory_dart.dart' if (dart.library.ui) 'factories/app_factory_flutter.dart' if (dart.library.html) 'factories/app_factory_web.dart';
+import 'factories/app_factory_dart.dart' if (dart.library.ui) 'package:maxi_flutter_framework/src/app_managers/app_factory_flutter.dart' if (dart.library.html) 'factories/app_factory_web.dart';
 
 ApplicationManager? _kAppManagerSingleton;
 ApplicationManager get appManager {

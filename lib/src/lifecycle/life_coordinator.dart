@@ -27,7 +27,7 @@ class LifeCoordinator with DisposableMixin, LifecycleHub {
     return _disponseStackTrace ?? StackTrace.empty;
   }
 
-  static FutureResult<T> runWithSeparateZone<T>(FutureResult<T> Function() function)  {
+  static FutureResult<T> runWithSeparateZone<T>(FutureResult<T> Function() function) {
     final completer = Completer<Result<T>>();
     final newExecutor = AsyncExecutor(function: function, connectToZone: false);
     scheduleMicrotask(() async {
@@ -86,6 +86,9 @@ class LifeCoordinator with DisposableMixin, LifecycleHub {
 
     return item as LifeCoordinator;
   }
+
+  @override
+  void performObjectDiscard() {}
 
   //////
 }

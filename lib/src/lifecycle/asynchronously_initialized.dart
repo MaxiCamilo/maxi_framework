@@ -24,6 +24,7 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
   Future<Result<void>> performInitialize();
 
   @override
+  @nonVirtual
   Future<Result<void>> initialize() {
     _mutex ??= Mutex();
     return _mutex!.execute(() async {
@@ -91,9 +92,8 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
     return _onDisposeCompleter!.future;
   }
 
-  
-
   @override
+  // ignore: invalid_override_of_non_virtual_member because we want to prevent subclasses from overriding dispose without using the mutex
   void dispose() {
     if (_mutex != null) {
       _mutex!.execute(maxi_dispose);

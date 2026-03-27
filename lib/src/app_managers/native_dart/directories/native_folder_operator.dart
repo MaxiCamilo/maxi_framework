@@ -24,6 +24,14 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
     nativeLocationRoute = processRouteResult.content.$1;
     nativeDirectRoute = processRouteResult.content.$2;
 
+    if (nativeLocationRoute.last == '/') {
+      nativeLocationRoute = nativeLocationRoute.substring(0, nativeLocationRoute.length - 1);
+    }
+
+    if (nativeDirectRoute.last == '/') {
+      nativeDirectRoute = nativeDirectRoute.substring(0, nativeDirectRoute.length - 1);
+    }
+
     return voidResult;
   }
 
@@ -47,7 +55,7 @@ class NativeFolderOperator with DisposableMixin, AsynchronouslyInitializedMixin 
     //final createdParent = await parentOperator.create().connect();
     //if (createdParent.itsFailure) return createdParent.cast();
     return usingHeart((heart) async {
-      final newPatch = heart.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
+      final newPatch = heart.lifecycleScope.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
       final createdPatch = await newPatch.create().checkCancelation();
       if (createdPatch.itsFailure) return createdPatch.cast();
 

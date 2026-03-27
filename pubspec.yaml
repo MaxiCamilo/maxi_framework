@@ -12,6 +12,7 @@ dependencies:
   meta: ^1.17.0
   path: ^1.9.1
   rxdart: ^0.28.0
+  collection: ^1.19.1
 
 dev_dependencies:
   lints: ^6.0.0

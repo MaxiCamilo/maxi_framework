@@ -16,7 +16,7 @@ class SyncFunctionality with FunctionalityMixin<String> {
   Future<Result<String>> runInternalFuncionality() async {
     print('Hi $name!');
 
-    await heart.delay(duration: const Duration(seconds: 30));
+    await heart.lifecycleScope.delay(duration: const Duration(seconds: 30));
 
     if (isCanceled) {
       return CancelationResult();
@@ -24,7 +24,7 @@ class SyncFunctionality with FunctionalityMixin<String> {
 
     print('You are $age years old!');
 
-    await heart.delay(duration: const Duration(seconds: 30));
+    await heart.lifecycleScope.delay(duration: const Duration(seconds: 30));
 
     return ResultValue(content: 'jejeje');
     /*
@@ -56,7 +56,7 @@ class AsyncFunctionality with FunctionalityMixin<String> {
     print('chanchan');
     sendText(FlexibleOration(message: 'Hi %1!', textParts: [name]));
 
-    await heart.delay(duration: const Duration(seconds: 7));
+    await heart.lifecycleScope.delay(duration: const Duration(seconds: 7));
 
     if (isCanceled) {
       return CancelationResult();
@@ -68,7 +68,7 @@ class AsyncFunctionality with FunctionalityMixin<String> {
       return CancelationResult();
     }
 
-    await heart.delay(duration: const Duration(seconds: 5));
+    await heart.lifecycleScope.delay(duration: const Duration(seconds: 5));
 
     return ResultValue(content: 'byebye');
   }
@@ -147,7 +147,7 @@ void main() {
       futures.add(
         Mutex.executeWithLifeCoordinator(
           function: (heart) async {
-            await heart.delay(duration: const Duration(seconds: 2));
+            await heart.lifecycleScope.delay(duration: const Duration(seconds: 2));
             return ResultValue(content: 'yey!');
           },
         ),

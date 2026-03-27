@@ -40,7 +40,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
     if (!initializationResult.itsCorrect) return initializationResult.cast();
 
     return await usingHeart((hearth) async {
-      final destinationOperator = hearth.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
+      final destinationOperator = hearth.lifecycleScope.joinDisposableObject(NativeFolderOperator(folderReference: destination, appManager: appManager));
 
       final existsFolder = await destinationOperator.exists().checkCancelation();
 
@@ -333,7 +333,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
         final folder = await FolderReference.fromFile(file: fileReference).checkCancelation();
         if (folder.itsFailure) return folder.cast();
 
-        final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
+        final folderOperator = heart.lifecycleScope.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
 
         final createdFolder = await folderOperator.create().checkCancelation();
         if (!createdFolder.itsCorrect) return createdFolder.cast();
@@ -364,7 +364,7 @@ class NativeFileOperator with DisposableMixin, AsynchronouslyInitializedMixin im
         final folder = await FolderReference.fromFile(file: fileReference).checkCancelation();
         if (folder.itsFailure) return folder.cast();
 
-        final folderOperator = heart.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
+        final folderOperator = heart.lifecycleScope.joinDisposableObject(NativeFolderOperator(folderReference: folder.content, appManager: appManager));
 
         final createdFolder = await folderOperator.create().checkCancelation();
         if (!createdFolder.itsCorrect) return createdFolder.cast();

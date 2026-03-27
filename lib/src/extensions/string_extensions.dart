@@ -69,4 +69,26 @@ extension StringExtensions on String {
     if (isEmpty) return this;
     return '${this[0].toUpperCase()}${extractFrom(since: 1)}';
   }
+
+  String zeroFill({required int quantityZeros, bool cutIfExceeds = true, bool cutFromTheEnd = true}) {
+    if (length > quantityZeros) {
+      if (cutIfExceeds) {
+        if (cutFromTheEnd) {
+          return extractFrom(since: length - quantityZeros);
+        } else {
+          return extractFrom(since: 0, amount: quantityZeros);
+        }
+      } else {
+        return this;
+      }
+    }
+
+    final buffer = StringBuffer();
+    for (int i = length; i < quantityZeros; i++) {
+      buffer.write('0');
+    }
+
+    buffer.write(this);
+    return buffer.toString();
+  }
 }

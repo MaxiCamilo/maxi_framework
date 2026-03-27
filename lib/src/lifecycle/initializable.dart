@@ -17,6 +17,7 @@ mixin InitializableMixin on DisposableMixin implements Initializable {
   Result<void> performInitialization();
 
   @override
+  @nonVirtual
   Result<void> initialize() {
     resurrectObject();
 
