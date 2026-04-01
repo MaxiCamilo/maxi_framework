@@ -98,14 +98,6 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
-  Result<T> onCorrectLambda(void Function(T x) func) {
-    if (itsCorrect) {
-      func(content);
-    }
-
-    return this;
-  }
-
   Result<R> select<R>(R Function(T x) func) {
     if (itsCorrect) {
       final item = func(content);
@@ -182,6 +174,27 @@ extension ExtensionResult<T> on Result<T> {
     return this;
   }
 
+  Result<T> onErrorAddMessage(Oration message) {
+    if (itsFailure) {
+      return NegativeResult(
+        error: ControlledFailure(
+          errorCode: error.errorCode,
+          message: FlexibleOration(message: '%1. %2', textParts: [message, error.message]),
+        ),
+      );
+    } else {
+      return this;
+    }
+  }
+
+  Result<T> onErrorInsertPartialResult({required T partialResult}) {
+    if (itsFailure) {
+      return NegativePartialResult<T>(error: error, partialContent: partialResult);
+    } else {
+      return this;
+    }
+  }
+
   T exceptionIfFails({required String detail}) {
     if (itsFailure) {
       appManager.exceptionChannel.sendItem((error, StackTrace.current));
@@ -194,6 +207,42 @@ extension ExtensionResult<T> on Result<T> {
     }
 
     return content;
+  }
+
+  Result<T> injectLogic(Result<void> Function(T) function) {
+    if (itsFailure) {
+      return this;
+    }
+
+    final logicResult = function(content);
+    if (logicResult.itsFailure) {
+      return logicResult.cast<T>();
+    }
+
+    return this;
+  }
+
+  Result<T> injectVoidLogic(void Function(T) function) {
+    if (itsFailure) {
+      return this;
+    }
+
+    tryFunction(const FixedOration(message: 'An error occurred while executing the injected logic'), () => function(content));
+
+    return this;
+  }
+
+  Result<T> injectNegativeLogic(Result<void> Function(Result<T>) function) {
+    if (itsCorrect) {
+      return this;
+    }
+
+    final logicResult = function(this);
+    if (logicResult.itsFailure) {
+      return logicResult.cast<T>();
+    }
+
+    return this;
   }
 }
 
@@ -284,7 +333,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
   }
 
   Future<Result<T>> breakIfCanceled({FutureOr<void> Function()? onCancel}) async {
-    if (LifeCoordinator.isZoneHeartCanceled) {}
+    if (LifeCoordinator.isZoneHeartCanceled) {
+      return CancelationResult<T>();
+    }
 
     final heart = LifeCoordinator.tryGetZoneHeart;
     if (heart != null) {
@@ -447,6 +498,15 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return result;
   }
 
+  Future<Result<T>> onErrorInsertPartialResult({required T partialResult}) async {
+    final result = await this;
+    if (result.itsFailure) {
+      return NegativePartialResult(error: result.error, partialContent: partialResult);
+    } else {
+      return result;
+    }
+  }
+
   Future<Result<T>> tryWhenNegative(FutureOr<Result<T>> Function(NegativeResult<T>) function) async {
     final result = await this;
     if (result.itsCorrect) {
@@ -454,6 +514,16 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
 
     return await function(result as NegativeResult<T>);
+  }
+
+  FutureResult<T> catchText(void Function(Oration) func) async{
+    if (LifeCoordinator.hasZoneHeart && !LifeCoordinator.isZoneHeartCanceled) {
+      final catchResult = InteractiveSystem.addCatcher<Oration>(func);
+      if (catchResult.itsFailure) {
+        return catchResult.cast();
+      }
+      return await this;
+    } else {}
   }
 
   Future<T> waitContentOrThrow() async {

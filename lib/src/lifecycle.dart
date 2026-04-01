@@ -4,3 +4,5 @@ export 'lifecycle/initializable.dart';
 export 'lifecycle/asynchronously_initialized.dart';
 export 'lifecycle/lifecycle_hub.dart';
 export 'lifecycle/lifecycle_scope.dart';
+export 'lifecycle/value_reserver.dart';
+export 'lifecycle/ticket_reserved_value.dart';

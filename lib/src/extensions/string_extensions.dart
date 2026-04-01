@@ -91,4 +91,14 @@ extension StringExtensions on String {
     buffer.write(this);
     return buffer.toString();
   }
+
+  String clearLatin1() {
+    final buffer = StringBuffer();
+    for (var rune in runes) {
+      if (rune <= 0xFF) {
+        buffer.writeCharCode(rune);
+      }
+    }
+    return buffer.toString();
+  }
 }

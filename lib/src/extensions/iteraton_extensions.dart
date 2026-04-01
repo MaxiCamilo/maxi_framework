@@ -81,4 +81,18 @@ extension IteratonExtensions<T> on Iterable<T> {
 
     return newList.asResultValue();
   }
+
+  Result<List<R>> resultMap<R>(Result<R> Function(T) transform, {NegativeResult<List<R>> Function(T, Object)? onError}) {
+    final newList = <R>[];
+    for (final element in this) {
+      final result = transform(element);
+      if (result.itsFailure) {
+        return result.cast();
+      }
+
+      newList.add(result.content);
+    }
+
+    return newList.asResultValue();
+  }
 }

@@ -71,7 +71,10 @@ mixin DisposableMixin implements Disposable {
   }
 
   @protected
-  void performResurrection() {}
+  @mustCallSuper
+  void performResurrection() {
+    _itWasDiscarded = false;
+  }
 
   @nonVirtual
   @internal

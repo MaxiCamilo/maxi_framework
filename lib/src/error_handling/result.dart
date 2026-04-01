@@ -3,6 +3,7 @@ import 'package:maxi_framework/maxi_framework.dart';
 abstract interface class Result<T> {
   bool get itsCorrect;
   bool get itsFailure;
+  bool get hasContent;
   T get content;
   ErrorData get error;
 
@@ -34,6 +35,9 @@ class ResultValue<T> implements Result<T> {
   bool get itsCorrect => true;
   @override
   bool get itsFailure => false;
+
+  @override
+  bool get hasContent => true;
 
   @override
   final T content;
@@ -81,6 +85,9 @@ class NegativeResult<T> implements Result<T> {
   Type get contentType => T;
 
   @override
+  bool get hasContent => false;
+
+  @override
   final ErrorData error;
 
   const NegativeResult({required this.error});
@@ -103,12 +110,37 @@ class NegativeResult<T> implements Result<T> {
   String toString() => 'Error: ${error.message}';
 }
 
+class NegativePartialResult<T> extends NegativeResult<T> {
+  final T partialContent;
+
+  @override
+  bool get hasContent => true;
+
+  @override
+  T get content => partialContent;
+
+  const NegativePartialResult({required super.error, required this.partialContent});
+
+  factory NegativePartialResult.controller({required ErrorCode code, required Oration message, required T partialContent}) => NegativePartialResult(
+    error: ControlledFailure(errorCode: code, message: message),
+    partialContent: partialContent,
+  );
+
+  factory NegativePartialResult.property({required Oration propertyName, required Oration message, required T partialContent}) => NegativePartialResult(
+    error: InvalidProperty(propertyName: propertyName, message: message),
+    partialContent: partialContent,
+  );
+}
+
 class CancelationResult<T> implements Result<T>, ResultHasStack<T> {
   @override
   bool get itsCorrect => false;
 
   @override
   bool get itsFailure => true;
+
+  @override
+  bool get hasContent => false;
 
   @override
   late final StackTrace stackTrace;
@@ -147,6 +179,9 @@ class ExceptionResult<T> implements Result<T>, ResultHasStack<T> {
 
   @override
   bool get itsFailure => true;
+
+  @override
+  bool get hasContent => false;
 
   @override
   T get content => throw error;

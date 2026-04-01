@@ -74,7 +74,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
         result = newResult;
       }
     } finally {
-      onFinish(result);
+      tryFunction(FlexibleOration(message: 'An internal error occurred to invoke onFinish in functionality %1', textParts: [functionalityName]), () => onFinish(result));
     }
 
     return result;
@@ -90,5 +90,25 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
     return AsyncExecutor(
       function: () => InteractiveSystem.catchItems<I, Result<T>>(function: execute, onItem: onItem),
     );
+  }
+}
+
+abstract class FunctionalityHeart<T> with FunctionalityMixin<T> {
+  const FunctionalityHeart();
+
+  FutureResult<T> runFuncionalityWithHeart(LifeCoordinator heart);
+
+  @protected
+  @override
+  FutureResult<T> runInternalFuncionality() async {
+    if (LifeCoordinator.isZoneHeartCanceled) {
+      return CancelationResult();
+    }
+
+    if (LifeCoordinator.hasZoneHeart) {
+      return await runFuncionalityWithHeart(LifeCoordinator.zoneHeart);
+    } else {
+      return await AsyncExecutor(function: () => runFuncionalityWithHeart(LifeCoordinator.zoneHeart), connectToZone: true).waitResult();
+    }
   }
 }

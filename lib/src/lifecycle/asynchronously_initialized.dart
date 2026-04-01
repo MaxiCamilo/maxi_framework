@@ -97,6 +97,8 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
   void dispose() {
     if (_mutex != null) {
       _mutex!.execute(maxi_dispose);
+    } else {
+      maxi_dispose();
     }
   }
 }

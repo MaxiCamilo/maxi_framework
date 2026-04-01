@@ -13,7 +13,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
   late Socket _nativeSocket;
 
   late StreamController<Uint8List> _receiverController;
-  late MaxiTimer _autocloseTimer;
+  MaxiTimer? _autocloseTimer;
 
   int _clients = 0;
 
@@ -30,18 +30,39 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
     );
 
     if (socketResult.itsFailure) return socketResult.cast();
+
     _nativeSocket = lifecycleScope.joinManualDisposableObject<Socket>(
       socketResult.content,
       onDisponse: (socket) {
         socket.close().whenComplete(() => socket.destroy());
       },
     );
-
+    //_nativeSocket.setOption(SocketOption.tcpNoDelay, true);
     _receiverController = lifecycleScope.joinStreamController(StreamController<Uint8List>.broadcast());
+    lifecycleScope.waitFuture(
+      function: () => _nativeSocket.done.whenComplete(() {
+        dispose();
+      }),
+    );
+    _nativeSocket.listen(
+      (data) {
+        _receiverController.add(data);
+      },
+      onError: (ex, st) {
+        _receiverController.addError(
+          ExceptionResult(
+            exception: ex,
+            stackTrace: st,
+            message: const FixedOration(message: 'An error occurred in the socket connection'),
+          ),
+        );
+        dispose();
+      },
 
-    _nativeSocket.listen((data) {
-      _receiverController.add(data);
-    }, onDone: dispose);
+      onDone: () {
+        dispose();
+      },
+    );
 
     if (autoclose != Duration.zero) {
       _autocloseTimer = lifecycleScope.joinDisposableObject(MaxiTimer());
@@ -52,8 +73,14 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
   }
 
   void _updateTimer() {
-    if (autoclose != Duration.zero && _clients <= 0) {
-      _autocloseTimer.startOrReset(duration: autoclose, payload: null, onFinish: (_) => dispose());
+    if (autoclose != Duration.zero && _clients > 0) {
+      _autocloseTimer?.startOrReset(
+        duration: autoclose,
+        payload: null,
+        onFinish: (_) {
+          dispose();
+        },
+      );
     }
   }
 
@@ -80,7 +107,8 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
 
   void _onListener() {
     _clients++;
-    _autocloseTimer.cancel();
+    _autocloseTimer?.cancel();
+    _updateTimer();
   }
 
   void _onCancelClient() {
@@ -97,7 +125,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
       );
     }
 
-    _autocloseTimer.cancel();
+    _autocloseTimer?.cancel();
 
     final result = volatileFunction(
       error: (ex, st) => ExceptionResult(
@@ -124,13 +152,13 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
         message: const FixedOration(message: 'Failed to send data through socket'),
       ),
       function: () async {
-        _autocloseTimer.cancel();
+        _autocloseTimer?.cancel();
         _nativeSocket.add(item);
       },
     );
 
     if (sendResult.itsFailure) {
-      _autocloseTimer.cancel();
+      _autocloseTimer?.cancel();
       return sendResult.cast();
     }
 

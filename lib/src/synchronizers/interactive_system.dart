@@ -53,6 +53,18 @@ mixin InteractiveSystem {
     sender.lambda((x) => x(item));
   }
 
+  static Result<void> addCatcher<I>(void Function(I) catcher) {
+    final thing = Zone.current[kInteractiveSymbolName];
+    if (thing == null) {
+      return NegativeResult.controller(
+        code: ErrorCode.invalidFunctionality,
+        message: FlexibleOration(message: 'The current zone does not have an interactive system associated with it, so it is not possible to add a catcher of type %1', textParts: [I]),
+      );
+    }
+
+    return voidResult;
+  }
+
   static Future<T> catchText<T>({required FutureOr<T> Function() function, required void Function(Oration) onText, Map<Object?, Object?> zoneValues = const {}}) =>
       catchItems<Oration, T>(function: function, onItem: onText, zoneValues: zoneValues);
 
