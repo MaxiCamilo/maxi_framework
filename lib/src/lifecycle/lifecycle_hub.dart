@@ -15,10 +15,12 @@ mixin LifecycleHub on Disposable {
           message: const FixedOration(message: 'This object was discarded and cannot be reused, so it is not possible to access its lifecycle scope'),
         );
       }
-      _lifecycleScope = LifecycleScope.withParent(this);
+      _lifecycleScope = LifecycleScope();
+      onDispose.whenComplete(() {
+        _lifecycleScope?.dispose();
+        _lifecycleScope = null;
+      });
     }
     return _lifecycleScope!;
   }
-
-  
 }

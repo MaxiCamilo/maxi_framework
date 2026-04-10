@@ -37,14 +37,14 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   @protected
   bool sendText(Oration text) {
     InteractiveSystem.sendItem(text);
-    return !heart.itWasDiscarded;
+    return !LifeCoordinator.isZoneHeartCanceled;
   }
 
   @protected
   LifeCoordinator get heart => LifeCoordinator.zoneHeart;
 
   @protected
-  bool get isCanceled => heart.itWasDiscarded;
+  bool get isCanceled => LifeCoordinator.isZoneHeartCanceled;
 
   @override
   Future<Result<T>> execute() async {
@@ -87,9 +87,10 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
 
   @override
   AsyncExecutor<T> interactiveExecution<I>({required void Function(I x) onItem}) {
-    return AsyncExecutor(
-      function: () => InteractiveSystem.catchItems<I, Result<T>>(function: execute, onItem: onItem),
-    );
+    final exe = AsyncExecutor(function: execute);
+    exe.messages<I>().listen(onItem);
+
+    return exe;
   }
 }
 

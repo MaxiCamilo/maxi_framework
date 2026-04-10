@@ -73,7 +73,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
   }
 
   void _updateTimer() {
-    if (autoclose != Duration.zero && _clients > 0) {
+    if (autoclose != Duration.zero && _clients > 0 && !itWasDiscarded) {
       _autocloseTimer?.startOrReset(
         duration: autoclose,
         payload: null,

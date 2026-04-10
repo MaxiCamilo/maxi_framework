@@ -95,4 +95,19 @@ extension IteratonExtensions<T> on Iterable<T> {
 
     return newList.asResultValue();
   }
+
+  Iterable<List<T>> splitByPart(int length) sync* {
+    final list = <T>[];
+
+    for (final item in this) {
+      list.add(item);
+      if (list.length == length) {
+        yield list;
+        list.clear();
+      }
+    }
+    if (list.isNotEmpty) {
+      yield list;
+    }
+  }
 }

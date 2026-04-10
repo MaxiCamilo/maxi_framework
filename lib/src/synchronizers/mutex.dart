@@ -71,9 +71,7 @@ class Mutex with DisposableMixin, InitializableMixin {
     }
   }
 
-  Future<T> executeInteractive<I, T>({required FutureOr<T> Function() function, required void Function(I) onItem}) {
-    return execute(() => InteractiveSystem.catchItems<I, T>(function: function, onItem: onItem));
-  }
+ 
 
   FutureResult<void> _checkIfBusy() async {
     await Future.delayed(Duration.zero);

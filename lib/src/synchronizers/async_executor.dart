@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
+import 'package:rxdart/transformers.dart';
 
 class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   static const _errorText = FixedOration(message: 'An internal error occurred while executing a feature');
@@ -12,13 +13,12 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   final void Function(LifeCoordinator)? _onHeartCreated;
   final bool _connectToZone;
 
-  final _currentListeners = <Function>[];
-
   bool _isActive = false;
   bool _heartDispose = false;
   Mutex? _mutex;
   LifeCoordinator? _actualHeart;
   Future? _onHeartDispose;
+  MasterChannel<dynamic, dynamic>? _messageChannel;
 
   @override
   bool get isActive => _isActive;
@@ -52,21 +52,31 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     }
   }
 
-  void addListener<I>(Function(I) listener) {
-    _currentListeners.add(listener);
+  void sendMessage(dynamic item) {
+    if (itWasDiscarded) {
+      log('[AsyncExecutor] Trying to send a message to an executor that was already discarded');
+      return;
+    }
+
+    if (_messageChannel == null || _messageChannel!.itWasDiscarded == true) {
+      log('[AsyncExecutor] Trying to send a message, but the sender is not available');
+      return;
+    }
+
+    _messageChannel!.sendItem(item).logIfFails(errorName: 'AsyncExecutor -> sendMessage');
   }
 
-  Stream<I> createListenerStream<I>() {
+  Stream<R> messages<R>() {
     if (itWasDiscarded) {
-      throw NegativeResult.controller(
-        code: ErrorCode.implementationFailure,
-        message: const FixedOration(message: 'An attempt was made to create a listener stream for an AsyncExecutor that was already discarded'),
-      );
+      log('[AsyncExecutor] Trying to listen messages of an executor that was already discarded');
+      return Stream.empty();
     }
-    final controller = StreamController<I>();
-    addListener<I>((item) => controller.add(item));
-    onDispose.whenComplete(() => controller.close());
-    return controller.stream;
+
+    if (_messageChannel == null || _messageChannel!.itWasDiscarded == true) {
+      _messageChannel = MasterChannel<dynamic, dynamic>();
+    }
+
+    return _messageChannel!.getReceiver().content.whereType<R>();
   }
 
   @override
@@ -94,37 +104,32 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
       return cancel;
     }
 
-    final heart = LifeCoordinator();
+    if (_messageChannel == null || _messageChannel!.itWasDiscarded == true) {
+      _messageChannel = MasterChannel<dynamic, dynamic>();
+    }
+
+    final messChannel = _messageChannel!.buildConnector();
+    if (messChannel.itsFailure) {
+      return messChannel.cast();
+    }
+
+    final heart = LifeCoordinator(messChannel.content);
     _actualHeart = heart;
     final whenDispose = onDispose.whenComplete(() => heart.dispose());
 
     Future? whenRootDispose;
+
     if (_connectToZone && LifeCoordinator.hasZoneHeart) {
-      whenRootDispose = LifeCoordinator.zoneHeart.onDispose.whenComplete(dispose);
+      final parent = LifeCoordinator.zoneHeart;
+      whenRootDispose = parent.onDispose.whenComplete(dispose);
     }
 
     if (_onHeartCreated != null) {
       _onHeartCreated(heart);
     }
 
-    final listenersInArea = Zone.current[InteractiveSystem.kInteractiveSymbolName];
-    final listeners = <Function>[];
-
-    if (listenersInArea is List) {
-      listeners.addAll(listenersInArea.whereType<Function>());
-    }
-
-    _currentListeners.addAll(listeners);
-    _currentListeners.clear();
-
     final child = Zone.current.fork(
-      zoneValues: {
-        ...zoneValues,
-        LifeCoordinator.kZoneHeart: heart,
-        LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart,
-        AsyncResult.kAsyncExecutor: this,
-        InteractiveSystem.kInteractiveSymbolName: listeners,
-      },
+      zoneValues: {...zoneValues, LifeCoordinator.kZoneHeart: heart, LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart, AsyncResult.kAsyncExecutor: this},
     );
     final futureResult = child.run<Future<Result<T>>>(() async {
       try {
@@ -142,6 +147,7 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     final result = await Future<Result<T>>.value(futureResult);
 
     _actualHeart = null;
+
     whenDispose.ignore();
     whenRootDispose?.ignore();
     heart.dispose();
@@ -160,6 +166,9 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   void performObjectDiscard() {
     _actualHeart?.dispose();
     _actualHeart = null;
+
+    _messageChannel?.dispose();
+    _messageChannel = null;
 
     if (_isActive && _onCancel != null) {
       try {

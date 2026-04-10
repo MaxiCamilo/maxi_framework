@@ -66,6 +66,9 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
   @protected
   @override
   void performObjectDiscard() {
+    if (_itWasDiscarded) {
+      return;
+    }
     _itWasDiscarded = true;
     if (_isInitialized) {
       _isInitialized = false;
@@ -73,6 +76,10 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
     } else {
       performUnitializedObjectDiscard();
     }
+
+    _onDisposeCompleter?.complete();
+    _onDisposeCompleter = null;
+
     _isInitialized = false;
   }
 
@@ -84,7 +91,6 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
 
   @override
   Future<dynamic> get onDispose {
-    _mutex ??= Mutex();
     if (_onDisposeCompleter == null || _onDisposeCompleter!.isCompleted) {
       _onDisposeCompleter = Completer();
     }

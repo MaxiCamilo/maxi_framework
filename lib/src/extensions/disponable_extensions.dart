@@ -20,4 +20,9 @@ extension DisponableExtensions on Disposable {
     heartZone.bindChild(this);
     return true;
   }
+
+  void attachWithOther(Disposable other){
+    onDispose.whenComplete(other.dispose);
+    other.onDispose.whenComplete(dispose);
+  }
 }

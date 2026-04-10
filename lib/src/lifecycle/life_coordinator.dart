@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
+import 'package:rxdart/rxdart.dart';
 
 FutureResult<T> usingHeart<T>(FutureResult<T> Function(LifeCoordinator heart) function) async {
   if (LifeCoordinator.isZoneHeartCanceled) {
@@ -19,6 +21,8 @@ class LifeCoordinator with DisposableMixin, LifecycleHub {
   StackTrace? _creationStackTrace;
   StackTrace? _disponseStackTrace;
 
+  final Channel<dynamic, dynamic> _messageChannel;
+
   StackTrace get creationStackTrace {
     return _creationStackTrace ?? StackTrace.empty;
   }
@@ -26,6 +30,31 @@ class LifeCoordinator with DisposableMixin, LifecycleHub {
   StackTrace get disponseStackTrace {
     return _disponseStackTrace ?? StackTrace.empty;
   }
+
+  void sendMessage(dynamic item) {
+    if (itWasDiscarded) {
+      log('[LifeCoordinator] Trying to send a message to a heart that was already discarded');
+      return;
+    }
+
+    _messageChannel.sendItem(item).logIfFails(errorName: 'LifeCoordinator -> sendMessage');
+  }
+
+  Stream<T> messages<T>() {
+    if (itWasDiscarded) {
+      log('[LifeCoordinator] Trying to listen messages of a heart that was already discarded');
+      return Stream.empty();
+    }
+
+    if (_messageChannel.itWasDiscarded == true) {
+      log('[LifeCoordinator] Trying to listen messages, but the sender is not available');
+      return Stream.empty();
+    }
+
+    return _messageChannel.getReceiver().content.whereType<T>();
+  }
+
+  LifeCoordinator(Channel<dynamic, dynamic> channel) : _messageChannel = channel;
 
   static FutureResult<T> runWithSeparateZone<T>(FutureResult<T> Function() function) {
     final completer = Completer<Result<T>>();

@@ -32,6 +32,22 @@ FutureResult<T> volatileFuture<T>({required Result<T> Function(dynamic ex, Stack
   }
 }
 
+FutureResult<T> catchText<T>({required FutureOr<Result<T>> Function() function, required void Function(Oration) onText}) async {
+  if (LifeCoordinator.hasZoneHeart) {
+    if (LifeCoordinator.isZoneHeartCanceled) {
+      return CancelationResult();
+    }
+
+    LifeCoordinator.zoneHeart.messages<Oration>().listen(onText);
+    return await function();
+  } else {
+    final executor = AsyncExecutor<T>(function: function, connectToZone: false);
+    executor.messages<Oration>().listen(onText);
+
+    return await executor.waitResult();
+  }
+}
+
 extension ExtensionResult<T> on Result<T> {
   Result<T> checkCancelation() {
     if (itsFailure) {
@@ -514,16 +530,6 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
 
     return await function(result as NegativeResult<T>);
-  }
-
-  FutureResult<T> catchText(void Function(Oration) func) async{
-    if (LifeCoordinator.hasZoneHeart && !LifeCoordinator.isZoneHeartCanceled) {
-      final catchResult = InteractiveSystem.addCatcher<Oration>(func);
-      if (catchResult.itsFailure) {
-        return catchResult.cast();
-      }
-      return await this;
-    } else {}
   }
 
   Future<T> waitContentOrThrow() async {
