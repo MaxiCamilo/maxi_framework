@@ -1,32 +1,27 @@
-import 'dart:async';
 import 'dart:developer';
 
-import 'package:maxi_framework/src/error_handling/error_code.dart';
-import 'package:maxi_framework/src/error_handling/result.dart';
-import 'package:maxi_framework/src/language/oration.dart';
+import 'package:maxi_framework/maxi_framework.dart';
 import 'package:meta/meta.dart';
 
 abstract interface class Disposable {
   bool get itWasDiscarded;
-  Future<dynamic> get onDispose;
+  TinyEvent<dynamic> get onDispose;
 
   void dispose();
 }
 
 mixin DisposableMixin implements Disposable {
   bool _itWasDiscarded = false;
-  Completer? _onDisposeCompleter;
+  TinyEventManager? _onDisposeEventManager;
 
   @override
   bool get itWasDiscarded => _itWasDiscarded;
 
   @override
-  Future<dynamic> get onDispose {
-    if (_onDisposeCompleter == null || _onDisposeCompleter!.isCompleted) {
-      _onDisposeCompleter = Completer();
-    }
+  TinyEvent<dynamic> get onDispose {
+    _onDisposeEventManager ??= TinyEventManager();
 
-    return _onDisposeCompleter!.future;
+    return _onDisposeEventManager!.createEvent(temporal: true);
   }
 
   //void snagOnAnotherObject({required Disposable patern}) {
@@ -49,9 +44,7 @@ mixin DisposableMixin implements Disposable {
       return;
     }
 
-    if (_onDisposeCompleter != null && _onDisposeCompleter!.isCompleted) {
-      _onDisposeCompleter = null;
-    }
+    _onDisposeEventManager ??= TinyEventManager();
 
     _itWasDiscarded = false;
     performResurrection();
@@ -91,7 +84,8 @@ mixin DisposableMixin implements Disposable {
     } catch (ex, st) {
       log('Discarding object of type $runtimeType failed; the error was: $ex.\nStack: $st');
     }
-    _onDisposeCompleter?.complete();
-    _onDisposeCompleter = null;
+    _onDisposeEventManager?.triggerEvent(this);
+    _onDisposeEventManager?.dispose();
+    _onDisposeEventManager = null;
   }
 }

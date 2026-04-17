@@ -10,6 +10,8 @@ mixin InitializableMixin on DisposableMixin implements Initializable {
   bool _isInitialized = false;
   bool _itsInitializationProcess = false;
 
+  bool get canBeRecycled => true;
+
   @override
   bool get isInitialized => _isInitialized;
 
@@ -19,6 +21,13 @@ mixin InitializableMixin on DisposableMixin implements Initializable {
   @override
   @nonVirtual
   Result<void> initialize() {
+    if (itWasDiscarded && !itWasDiscarded) {
+      return NegativeResult.controller(
+        code: ErrorCode.discontinuedFunctionality,
+        message: const FixedOration(message: 'This object was already discarded and cannot be initialized again'),
+      );
+    }
+
     resurrectObject();
 
     if (_isInitialized) {

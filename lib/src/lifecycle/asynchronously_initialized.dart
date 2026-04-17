@@ -10,12 +10,7 @@ abstract interface class AsynchronouslyInitialized implements Disposable {
 
 mixin AsynchronouslyInitializedMixin on DisposableMixin implements AsynchronouslyInitialized {
   bool _isInitialized = false;
-  bool _itWasDiscarded = false;
-  Completer? _onDisposeCompleter;
   Mutex? _mutex;
-
-  @override
-  bool get itWasDiscarded => _itWasDiscarded;
 
   @override
   bool get isInitialized => _isInitialized;
@@ -29,21 +24,21 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
     _mutex ??= Mutex();
     return _mutex!.execute(() async {
       if (_isInitialized) {
-        if (_mutex!.onlyHasOne) {
+        if (_mutex != null && _mutex!.onlyHasOne) {
           _mutex = null;
         }
         return voidResult;
       }
 
       try {
-        _itWasDiscarded = false;
+        resurrectObject();
         final result = await performInitialize();
         if (result.itsCorrect) {
           _isInitialized = true;
         } else {
           dispose();
         }
-        if (_mutex!.onlyHasOne) {
+        if (_mutex != null && _mutex!.onlyHasOne) {
           _mutex = null;
         }
         return result;
@@ -54,7 +49,7 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
           message: FlexibleOration(message: 'An internal error occurred while trying to initialize the functionality %1', textParts: [runtimeType.toString()]),
         );
         dispose();
-        if (_mutex!.onlyHasOne) {
+        if (_mutex != null && _mutex!.onlyHasOne) {
           _mutex = null;
         }
 
@@ -64,12 +59,9 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
   }
 
   @protected
+  @nonVirtual
   @override
   void performObjectDiscard() {
-    if (_itWasDiscarded) {
-      return;
-    }
-    _itWasDiscarded = true;
     if (_isInitialized) {
       _isInitialized = false;
       performInitializedObjectDiscard();
@@ -77,8 +69,15 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
       performUnitializedObjectDiscard();
     }
 
-    _onDisposeCompleter?.complete();
-    _onDisposeCompleter = null;
+    if (_mutex != null && (_mutex!.isBusy && !_mutex!.onlyHasOne)) {
+      final actual = _mutex!;
+      _mutex = null;
+      actual.execute(() async {
+        actual.dispose();
+      });
+    } else {
+      _mutex = null;
+    }
 
     _isInitialized = false;
   }
@@ -88,23 +87,4 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
 
   @protected
   void performInitializedObjectDiscard() {}
-
-  @override
-  Future<dynamic> get onDispose {
-    if (_onDisposeCompleter == null || _onDisposeCompleter!.isCompleted) {
-      _onDisposeCompleter = Completer();
-    }
-
-    return _onDisposeCompleter!.future;
-  }
-
-  @override
-  // ignore: invalid_override_of_non_virtual_member because we want to prevent subclasses from overriding dispose without using the mutex
-  void dispose() {
-    if (_mutex != null) {
-      _mutex!.execute(maxi_dispose);
-    } else {
-      maxi_dispose();
-    }
-  }
 }

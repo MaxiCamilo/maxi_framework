@@ -49,6 +49,10 @@ class FileReference implements DirectoryReference {
       route = route.substring(1).trim();
     }
 
+    if (!isLocal && (((appManager.isLinux || appManager.isMacOS) && route.first != '/')) || (appManager.isWindows && !(route.length > 3 && route[1] == ':' && route[2] == '/'))) {
+      return interpretRoute(route: route, isLocal: true);
+    }
+
     String folders = '';
     late final String name;
 
@@ -101,8 +105,6 @@ class FileReference implements DirectoryReference {
   const FileReference({required this.isLocal, required this.name, required this.router});
 
   FileOperator buildOperator() => appManager.buildFileOperator(this);
-
-  
 }
 
 abstract interface class FileOperator {

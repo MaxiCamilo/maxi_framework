@@ -2,8 +2,9 @@ import 'package:maxi_framework/maxi_framework.dart';
 
 class DisposableList<T extends Disposable> with DisposableMixin, LifecycleHub implements List<T> {
   final List<T> _items;
+  final bool disposeIfItsEmpty;
 
-  DisposableList({List<T>? initialItems}) : _items = initialItems ?? [];
+  DisposableList({List<T>? initialItems, this.disposeIfItsEmpty = false}) : _items = initialItems ?? [];
 
   @override
   void performObjectDiscard() {
@@ -25,6 +26,9 @@ class DisposableList<T extends Disposable> with DisposableMixin, LifecycleHub im
     lifecycleScope.joinDisposableObject(item, () {
       if (itWasDiscarded) return;
       _items.remove(item);
+      if (disposeIfItsEmpty && _items.isEmpty) {
+        dispose();
+      }
     });
   }
 
@@ -235,7 +239,6 @@ class DisposableList<T extends Disposable> with DisposableMixin, LifecycleHub im
     final index = value is T ? _items.indexOf(value) : -1;
     if (index == -1) return false;
     _items[index].dispose();
-    _items.removeAt(index);
     return true;
   }
 
@@ -280,10 +283,11 @@ class DisposableList<T extends Disposable> with DisposableMixin, LifecycleHub im
 
   @override
   void clear() {
-    for (final item in _items) {
+    final clone = _items.toList();
+    _items.clear();
+    for (final item in clone) {
       item.dispose();
     }
-    _items.clear();
   }
 
   @override

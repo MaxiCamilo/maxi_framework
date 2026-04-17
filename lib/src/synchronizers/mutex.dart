@@ -71,8 +71,6 @@ class Mutex with DisposableMixin, InitializableMixin {
     }
   }
 
- 
-
   FutureResult<void> _checkIfBusy() async {
     await Future.delayed(Duration.zero);
 
@@ -80,7 +78,7 @@ class Mutex with DisposableMixin, InitializableMixin {
       final waiter = Completer<bool>();
       _queue.add(waiter);
 
-      Future? onDisposeHeart;
+      TinyEvent? onDisposeHeart;
       final currentHeart = LifeCoordinator.tryGetZoneHeart;
       if (currentHeart != null && !currentHeart.itWasDiscarded) {
         onDisposeHeart = currentHeart.onDispose.whenComplete(() {

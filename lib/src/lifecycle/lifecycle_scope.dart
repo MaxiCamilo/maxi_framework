@@ -155,6 +155,9 @@ final class LifecycleScope with DisposableMixin {
       if (!itWasDiscarded) {
         _disponsableObjects!.remove(func);
       }
+      if (onDisposeFunction != null) {
+        onDisposeFunction();
+      }
     });
 
     return item;
@@ -282,21 +285,30 @@ final class LifecycleScope with DisposableMixin {
     final completer = Completer<Result<T>>();
 
     final executor = function()
-        .then((x) => completer.complete(ResultValue(content: x)))
-        .onError(
-          (ex, st) => ExceptionResult(
-            exception: ex,
-            stackTrace: st,
-            message: FixedOration(message: 'An internal error occurred while executing a feature'),
-          ),
-        );
+        .then((x) {
+          if (!completer.isCompleted) completer.complete(ResultValue(content: x));
+        })
+        .onError((ex, st) {
+          if (!completer.isCompleted) {
+            completer.complete(
+              ExceptionResult(
+                exception: ex,
+                stackTrace: st,
+                message: FixedOration(message: 'An internal error occurred while executing a feature'),
+              ),
+            );
+          }
+        });
     final done = onDispose.whenComplete(() {
       executor.ignore();
       final cancel = CancelationResult<T>();
-      if (!completer.isCompleted) {
-        completer.complete(cancel);
-      }
-      appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
+      scheduleMicrotask(() {
+        if (!completer.isCompleted) {
+          completer.complete(cancel);
+        }
+      });
+
+      //appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
     });
 
     final futureResult = await completer.future;

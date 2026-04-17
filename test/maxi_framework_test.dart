@@ -96,26 +96,7 @@ void main() {
       }
     });
 
-    test('Test Textables', () async {
-      final func = const AsyncFunctionality(name: 'Maxitito', age: 30);
-      final executor = func.interactiveExecution<Oration>(onItem: (x) => print('Event: $x'));
-      /*
-      Future.delayed(const Duration(seconds: 5)).whenComplete(() {
-        executor.dispose();
-      });*/
-
-      final result = await executor.waitResult();
-
-      if (result.itsCorrect) {
-        print('Result: ${result.content}');
-      } else {
-        print('Error!: ${result.error.message}');
-      }
-
-      // await Future.delayed(Duration.zero);
-      //await Future.delayed(Duration.zero);
-      print('chau!');
-    });
+    
 
     test('Mutex', () async {
       Future<void> first() async {

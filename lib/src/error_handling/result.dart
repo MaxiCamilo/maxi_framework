@@ -165,7 +165,7 @@ class CancelationResult<T> implements Result<T>, ResultHasStack<T> {
   CancelationResult<R> cast<R>() => CancelationResult<R>();
 
   @override
-  String toString() => '<Cancellation error>';
+  String toString() => 'Cancellation error on:\n$stackTrace\n####################################################################';
 }
 
 class ExceptionResult<T> implements Result<T>, ResultHasStack<T> {

@@ -10,7 +10,7 @@ Stream<T> buildStream<T>(FutureOr<Stream<T>> Function() function) async* {
 extension StreamExtensions<T> on Stream<T> {
   Future<Result<T>> waitItem({Duration? timeout, bool connectToZone = true}) async {
     final waiter = Completer<Result<T>>();
-    Future? heartCanceled;
+    TinyEvent? heartCanceled;
 
     final subscription = listen(
       (event) {
@@ -88,7 +88,7 @@ extension StreamExtensions<T> on Stream<T> {
 
   Future<Result<void>> waitFinish({required void Function(T event) onData, Function? onError, void Function()? onDone, bool? cancelOnError, bool connectToHeart = true}) {
     final completer = Completer<Result<void>>();
-    Future<dynamic>? onDispose;
+    TinyEvent? onDispose;
 
     final subscription = listen(
       onData,

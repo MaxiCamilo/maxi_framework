@@ -9,12 +9,12 @@ class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Ch
 
   bool _isClosed = false;
 
-  late StreamController<R> _receiverController;
+  StreamController<R>? _receiverController;
 
-  late List<_SlaveChannel<S, R>> _slavers;
+  List<_SlaveChannel<S, R>> _slavers = [];
 
   MasterChannel({this.reactivated = false, this.closeWhenNoSlaves = false});
-  
+
   @override
   Result<void> performInitialization() {
     if (_isClosed && !reactivated) {
@@ -35,7 +35,7 @@ class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Ch
     final initializeResult = initialize();
     if (initializeResult.itsFailure) return initializeResult.cast();
 
-    return ResultValue(content: _receiverController.stream);
+    return ResultValue(content: _receiverController!.stream);
   }
 
   Result<Channel<S, R>> buildConnector() {
@@ -73,13 +73,13 @@ class MasterChannel<R, S> with DisposableMixin, InitializableMixin implements Ch
     _slavers.clear();
     clone.lambda((x) => x.dispose());
 
-    _receiverController.close();
+    _receiverController?.close();
   }
 
   @protected
   Result<void> receiveSlaveItem({required R item}) {
     if (!itWasDiscarded) {
-      _receiverController.add(item);
+      _receiverController!.add(item);
     }
 
     return voidResult;

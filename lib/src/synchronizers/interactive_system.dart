@@ -1,95 +1,64 @@
-/*
 import 'dart:async';
-import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
 
 //typedef TextableExecutor<T> = InteractiveSystem<Oration, T>;
 
+class InteractiveSystemValue<T> {
+  final T value;
+  final dynamic payload;
+
+  const InteractiveSystemValue({required this.value, this.payload});
+}
+
 mixin InteractiveSystem {
   static const kInteractiveSymbolName = #maxiInteractive;
 
-  static List<void Function(I)> _getItemSender<I>() {
-    final thing = Zone.current[kInteractiveSymbolName];
-    final result = <void Function(I)>[];
-
-    if (thing is List) {
-      for (final func in thing) {
-        if (func is void Function(I)) {
-          result.add(func);
-        }
-      }
+  static Result<MasterChannel<InteractiveSystemValue, InteractiveSystemValue>> obtainChannel() {
+    final channelResult = tryCast<MasterChannel<InteractiveSystemValue, InteractiveSystemValue>>(FixedOration(message: 'No interactive channel found'), Zone.current[kInteractiveSymbolName]);
+    if (channelResult.itsFailure) {
+      return channelResult.cast();
     }
 
-    return result;
-  }
-
-  static List<Function> getAllSenders() {
-    final thing = Zone.current[kInteractiveSymbolName];
-
-    if (thing is List) {
-      return thing.whereType<Function>().toList(growable: false);
-    } else {
-      return [];
-    }
-  }
-
-  static void sendItemCertainFunctions({required List<Function> list, required dynamic item}) {
-    for (final func in list) {
-      try {
-        func(item);
-      } catch (_) {
-        //log('[InteractiveSystem] An error occurred while sending an item to a function sender: $e');
-      }
-    }
-  }
-
-  static void sendItem<I>(I item) {
-    final sender = _getItemSender<I>();
-    if (sender.isEmpty) {
-      log('[InteractiveSystem] A sender of type a function was expected, but the sender for this zone is $I');
-      return;
-    }
-
-    sender.lambda((x) => x(item));
-  }
-
-  static Result<void> addCatcher<I>(void Function(I) catcher) {
-    final thing = Zone.current[kInteractiveSymbolName];
-    if (thing == null) {
+    if (channelResult.content.itWasDiscarded) {
       return NegativeResult.controller(
-        code: ErrorCode.invalidFunctionality,
-        message: FlexibleOration(message: 'The current zone does not have an interactive system associated with it, so it is not possible to add a catcher of type %1', textParts: [I]),
+        code: ErrorCode.discontinuedFunctionality,
+        message: FixedOration(message: 'The interactive channel was discarded'),
       );
     }
+
+    return ResultValue(content: channelResult.content);
+  }
+
+  static Result<Channel<InteractiveSystemValue, InteractiveSystemValue>> forkChannel() {
+    return obtainChannel().onCorrect((x) => x.buildConnector());
+  }
+
+  static Result<void> sendValue({required dynamic value, dynamic payload}) {
+    return obtainChannel().onCorrect((x) => x.sendItem(InteractiveSystemValue(value: value, payload: payload)));
+  }
+
+  static Future<Result<void>> sendValueAsync({required dynamic value, dynamic payload}) async {
+    final sendingResult = sendValue(value: value, payload: payload);
+    if (sendingResult.itsFailure) {
+      return sendingResult.cast();
+    }
+
+    await Future.delayed(Duration.zero);
 
     return voidResult;
   }
 
-  static Future<T> catchText<T>({required FutureOr<T> Function() function, required void Function(Oration) onText, Map<Object?, Object?> zoneValues = const {}}) =>
-      catchItems<Oration, T>(function: function, onItem: onText, zoneValues: zoneValues);
+  static Result<Stream<T>> receiveValues<T>({bool Function(T item, dynamic payload)? filter}) {
+    final forkChannelResult = forkChannel();
+    if (forkChannelResult.itsFailure) return forkChannelResult.cast();
 
-  static Future<T> catchItems<I, T>({required FutureOr<T> Function() function, required void Function(I) onItem, Map<Object?, Object?> zoneValues = const {}}) {
-    final previous = _getItemSender<I>();
-    previous.add(onItem);
+    final channel = forkChannelResult.content;
 
-    final newZone = Zone.current.fork(zoneValues: {kInteractiveSymbolName: previous, ...zoneValues});
-    return newZone.run<Future<T>>(() async => await function());
-  }
-
-  static Future<T> executeMultipleFunctions<T>({required List<Function> catchers, required FutureOr<T> Function() function, Map<Object?, Object?> zoneValues = const {}}) {
-    final senders = getAllSenders().toList();
-
-    for (final func in catchers) {
-      final exists = senders.selectPosition((x) => func == x);
-      if (exists == -1) {
-        senders.add(func);
-      } else {
-        senders[exists] = func;
-      }
+    if (filter == null) {
+      return channel.getReceiver().select((x) => x.where((x) => x.value is T).map((e) => e.value as T));
+    } else {
+      return channel.getReceiver().select((x) => x.where((x) => x.value is T).where((x) => filter(x.value as T, x.payload)).map((e) => e.value as T));
     }
-
-    final newZone = Zone.current.fork(zoneValues: {kInteractiveSymbolName: senders, ...zoneValues});
-    return newZone.run<Future<T>>(() async => await function());
   }
-}*/
+}

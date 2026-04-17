@@ -6,8 +6,6 @@ import 'package:meta/meta.dart';
 abstract interface class Functionality<T> {
   Future<Result<T>> execute();
   Future<Result<T>> separateExecution();
-
-  AsyncExecutor<T> interactiveExecution<I>({required void Function(I) onItem});
 }
 
 mixin FunctionalityMixin<T> implements Functionality<T> {
@@ -36,7 +34,7 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
 
   @protected
   bool sendText(Oration text) {
-    InteractiveSystem.sendItem(text);
+    InteractiveSystem.sendValue(value: text);
     return !LifeCoordinator.isZoneHeartCanceled;
   }
 
@@ -83,14 +81,6 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
   @override
   Future<Result<T>> separateExecution() {
     return AsyncExecutor(function: execute).waitResult();
-  }
-
-  @override
-  AsyncExecutor<T> interactiveExecution<I>({required void Function(I x) onItem}) {
-    final exe = AsyncExecutor(function: execute);
-    exe.messages<I>().listen(onItem);
-
-    return exe;
   }
 }
 

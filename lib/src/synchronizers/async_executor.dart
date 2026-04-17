@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:maxi_framework/maxi_framework.dart';
-import 'package:rxdart/transformers.dart';
 
 class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   static const _errorText = FixedOration(message: 'An internal error occurred while executing a feature');
@@ -14,11 +13,10 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   final bool _connectToZone;
 
   bool _isActive = false;
-  bool _heartDispose = false;
   Mutex? _mutex;
   LifeCoordinator? _actualHeart;
   Future? _onHeartDispose;
-  MasterChannel<dynamic, dynamic>? _messageChannel;
+  MasterChannel<InteractiveSystemValue, InteractiveSystemValue>? _valueChannel;
 
   @override
   bool get isActive => _isActive;
@@ -40,45 +38,6 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     );
   }
 
-  void connectToHeart() {
-    final heart = LifeCoordinator.tryGetZoneHeart;
-    if (heart != null) {
-      if (heart.itWasDiscarded) {
-        _heartDispose = true;
-      } else {
-        _heartDispose = false;
-        _onHeartDispose = heart.onDispose.whenComplete(dispose);
-      }
-    }
-  }
-
-  void sendMessage(dynamic item) {
-    if (itWasDiscarded) {
-      log('[AsyncExecutor] Trying to send a message to an executor that was already discarded');
-      return;
-    }
-
-    if (_messageChannel == null || _messageChannel!.itWasDiscarded == true) {
-      log('[AsyncExecutor] Trying to send a message, but the sender is not available');
-      return;
-    }
-
-    _messageChannel!.sendItem(item).logIfFails(errorName: 'AsyncExecutor -> sendMessage');
-  }
-
-  Stream<R> messages<R>() {
-    if (itWasDiscarded) {
-      log('[AsyncExecutor] Trying to listen messages of an executor that was already discarded');
-      return Stream.empty();
-    }
-
-    if (_messageChannel == null || _messageChannel!.itWasDiscarded == true) {
-      _messageChannel = MasterChannel<dynamic, dynamic>();
-    }
-
-    return _messageChannel!.getReceiver().content.whereType<R>();
-  }
-
   @override
   Future<Result<T>> waitResult({Map<Object?, Object?> zoneValues = const {}}) {
     resurrectObject();
@@ -96,32 +55,36 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
       return cancel;
     }
 
-    if (_heartDispose) {
-      _onHeartDispose?.ignore();
+    if (_connectToZone && LifeCoordinator.isZoneHeartCanceled) {
       _isActive = false;
       final cancel = CancelationResult<T>();
       appManager.exceptionChannel.sendItem((cancel, StackTrace.current));
       return cancel;
     }
 
-    if (_messageChannel == null || _messageChannel!.itWasDiscarded == true) {
-      _messageChannel = MasterChannel<dynamic, dynamic>();
+    if (_connectToZone && LifeCoordinator.hasZoneHeart) {
+      final parent = LifeCoordinator.zoneHeart;
+      parent.onDispose.whenComplete(dispose);
     }
 
-    final messChannel = _messageChannel!.buildConnector();
-    if (messChannel.itsFailure) {
-      return messChannel.cast();
-    }
-
-    final heart = LifeCoordinator(messChannel.content);
+    final heart = LifeCoordinator();
     _actualHeart = heart;
     final whenDispose = onDispose.whenComplete(() => heart.dispose());
 
-    Future? whenRootDispose;
-
-    if (_connectToZone && LifeCoordinator.hasZoneHeart) {
-      final parent = LifeCoordinator.zoneHeart;
-      whenRootDispose = parent.onDispose.whenComplete(dispose);
+    bool channelWasCreated = false;
+    if (_valueChannel == null || _valueChannel!.itWasDiscarded) {
+      if (_connectToZone) {
+        final mainResult = InteractiveSystem.obtainChannel();
+        if (mainResult.itsFailure) {
+          _valueChannel = MasterChannel<InteractiveSystemValue, InteractiveSystemValue>();
+          channelWasCreated = true;
+        } else {
+          _valueChannel = mainResult.content;
+        }
+      } else {
+        _valueChannel = MasterChannel<InteractiveSystemValue, InteractiveSystemValue>();
+        channelWasCreated = true;
+      }
     }
 
     if (_onHeartCreated != null) {
@@ -129,7 +92,13 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     }
 
     final child = Zone.current.fork(
-      zoneValues: {...zoneValues, LifeCoordinator.kZoneHeart: heart, LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart, AsyncResult.kAsyncExecutor: this},
+      zoneValues: {
+        ...zoneValues,
+        LifeCoordinator.kZoneHeart: heart,
+        LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart,
+        AsyncResult.kAsyncExecutor: this,
+        InteractiveSystem.kInteractiveSymbolName: _valueChannel!,
+      },
     );
     final futureResult = child.run<Future<Result<T>>>(() async {
       try {
@@ -145,13 +114,19 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     });
 
     final result = await Future<Result<T>>.value(futureResult);
+    await Future.delayed(Duration.zero);
 
     _actualHeart = null;
 
     whenDispose.ignore();
-    whenRootDispose?.ignore();
     heart.dispose();
+
     _onHeartDispose?.ignore();
+
+    if (channelWasCreated) {
+      _valueChannel?.dispose();
+      _valueChannel = null;
+    }
 
     if (_mutex != null && _mutex!.onlyHasOne) {
       _mutex = null;
@@ -162,13 +137,19 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     return result;
   }
 
+  void sendMessage({dynamic value, dynamic payload}) {
+    if (_valueChannel != null && !_valueChannel!.itWasDiscarded) {
+      _valueChannel!.sendItem(InteractiveSystemValue(value: value, payload: payload));
+    }
+  }
+
   @override
   void performObjectDiscard() {
     _actualHeart?.dispose();
     _actualHeart = null;
 
-    _messageChannel?.dispose();
-    _messageChannel = null;
+    _mutex?.dispose();
+    _mutex = null;
 
     if (_isActive && _onCancel != null) {
       try {

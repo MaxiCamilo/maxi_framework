@@ -12,6 +12,20 @@ Result<T> tryFunction<T>(Oration message, T Function() func) {
   }
 }
 
+Result<T> tryCast<T>(Oration message, dynamic value) {
+  if (value == null) {
+    return NegativeResult.controller(code: ErrorCode.nullValue, message: message);
+  }
+  if (value is T) {
+    return ResultValue(content: value);
+  } else {
+    return NegativeResult.controller(
+      code: ErrorCode.wrongType,
+      message: FlexibleOration(message: '%1. Expected type: %2, but was %3', textParts: [message, T, value.runtimeType]),
+    );
+  }
+}
+
 Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required T Function() function}) {
   try {
     return ResultValue(content: function());
@@ -32,20 +46,17 @@ FutureResult<T> volatileFuture<T>({required Result<T> Function(dynamic ex, Stack
   }
 }
 
-FutureResult<T> catchText<T>({required FutureOr<Result<T>> Function() function, required void Function(Oration) onText}) async {
-  if (LifeCoordinator.hasZoneHeart) {
-    if (LifeCoordinator.isZoneHeartCanceled) {
-      return CancelationResult();
-    }
+FutureResult<T> separateExecution<T>({required FutureOr<Result<T>> Function() function, void Function(AsyncExecutor)? onExecuted}) async {
+  final completer = Completer<Result<T>>();
 
-    LifeCoordinator.zoneHeart.messages<Oration>().listen(onText);
-    return await function();
-  } else {
-    final executor = AsyncExecutor<T>(function: function, connectToZone: false);
-    executor.messages<Oration>().listen(onText);
+  scheduleMicrotask(() async {
+    final asynExecutor = AsyncExecutor(function: function, connectToZone: false);
+    if (onExecuted != null) onExecuted(asynExecutor);
+    final result = await asynExecutor.waitResult();
+    completer.complete(result);
+  });
 
-    return await executor.waitResult();
-  }
+  return completer.future;
 }
 
 extension ExtensionResult<T> on Result<T> {
@@ -120,6 +131,15 @@ extension ExtensionResult<T> on Result<T> {
       return ResultValue<R>(content: item);
     } else {
       return cast<R>();
+    }
+  }
+
+  Result<void> selectVoid(void Function(T x) func) {
+    if (itsCorrect) {
+      func(content);
+      return voidResult;
+    } else {
+      return cast<void>();
     }
   }
 
@@ -398,7 +418,19 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
   }
 
   Future<Result<T>> logIfFails({String errorName = ''}) async {
-    final item = await this;
+    late final Result<T> item;
+
+    try {
+      item = await this;
+    } catch (ex, st) {
+      item = ExceptionResult<T>(
+        exception: ex,
+        stackTrace: st,
+        message: errorName.isEmpty
+            ? const FixedOration(message: 'An exception was thrown while waiting for the future result')
+            : FlexibleOration(message: 'An exception was thrown while waiting for the future result: %1', textParts: [errorName]),
+      );
+    }
 
     if (item.itsFailure) {
       log('''#############################################################

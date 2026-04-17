@@ -10,7 +10,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
   final int port;
   final Duration autoclose;
 
-  late Socket _nativeSocket;
+  Socket? _nativeSocket;
 
   late StreamController<Uint8List> _receiverController;
   MaxiTimer? _autocloseTimer;
@@ -31,20 +31,16 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
 
     if (socketResult.itsFailure) return socketResult.cast();
 
-    _nativeSocket = lifecycleScope.joinManualDisposableObject<Socket>(
-      socketResult.content,
-      onDisponse: (socket) {
-        socket.close().whenComplete(() => socket.destroy());
-      },
-    );
+    final socket = socketResult.content;
+    _nativeSocket = socket;
     //_nativeSocket.setOption(SocketOption.tcpNoDelay, true);
     _receiverController = lifecycleScope.joinStreamController(StreamController<Uint8List>.broadcast());
     lifecycleScope.waitFuture(
-      function: () => _nativeSocket.done.whenComplete(() {
+      function: () => socket.done.whenComplete(() {
         dispose();
       }),
     );
-    _nativeSocket.listen(
+    socket.listen(
       (data) {
         _receiverController.add(data);
       },
@@ -85,10 +81,20 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
   }
 
   @override
+  void performInitializedObjectDiscard() {
+    super.performInitializedObjectDiscard();
+    _nativeSocket?.close();
+    _nativeSocket?.destroy();
+    _nativeSocket = null;
+  }
+
+  @override
   Result<Stream<Uint8List>> getReceiver() {
-    if (isInitialized) {
-      _clients++;
-      return _receiverController.stream.doOnListen(_onListener).doOnCancel(_onCancelClient).asResultValue();
+    if (!itWasDiscarded) {
+      if (isInitialized) {
+        _clients++;
+        return _receiverController.stream.doOnListen(_onListener).doOnCancel(_onCancelClient).asResultValue();
+      }
     }
 
     final controller = lifecycleScope.joinStreamController(StreamController<Uint8List>());
@@ -133,7 +139,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
         stackTrace: st,
         message: const FixedOration(message: 'Failed to send data through socket'),
       ),
-      function: () => _nativeSocket.add(item),
+      function: () => _nativeSocket!.add(item),
     );
 
     _updateTimer();
@@ -153,7 +159,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
       ),
       function: () async {
         _autocloseTimer?.cancel();
-        _nativeSocket.add(item);
+        _nativeSocket!.add(item);
       },
     );
 
@@ -162,6 +168,6 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
       return sendResult.cast();
     }
 
-    return _nativeSocket.flush().toFutureResult(errorMessage: const FixedOration(message: 'Failed to flush socket after sending data')).whenComplete(() => _updateTimer());
+    return _nativeSocket!.flush().toFutureResult(errorMessage: const FixedOration(message: 'Failed to flush socket after sending data')).whenComplete(() => _updateTimer());
   }
 }

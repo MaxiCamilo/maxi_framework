@@ -14,7 +14,7 @@ abstract interface class DirectoryReference {
 
 extension DirectoryReferenceExtension on DirectoryReference {
   Result<FolderReference> obtainFolderLocation() {
-    final slashSplit = router.split('/').map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
+    final slashSplit = completeRoute.split('/').map((x) => x.trim()).where((x) => x.isNotEmpty).toList();
     if (slashSplit.isEmpty) {
       return NegativeResult.controller(
         code: ErrorCode.invalidProperty,

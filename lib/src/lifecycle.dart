@@ -7,3 +7,4 @@ export 'lifecycle/lifecycle_scope.dart';
 export 'lifecycle/value_reserver.dart';
 export 'lifecycle/ticket_reserved_value.dart';
 export 'lifecycle/reusable_object.dart';
+export 'lifecycle/tiny_event.dart';
