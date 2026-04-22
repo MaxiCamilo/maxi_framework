@@ -100,6 +100,10 @@ class NegativeResult<T> implements Result<T> {
     error: InvalidProperty(propertyName: propertyName, message: message),
   );
 
+  factory NegativeResult.entity({required Oration entityName, required List<InvalidProperty> invalidProperties}) => NegativeResult(
+    error: InvalidEntity(entityName: entityName, invalidProperties: invalidProperties),
+  );
+
   @override
   T get content => throw error;
 

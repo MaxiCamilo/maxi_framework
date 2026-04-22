@@ -48,6 +48,24 @@ class TinyEvent<T> {
     return this;
   }
 
+  Future<T> toFuture() {
+    final completer = Completer<T>();
+
+    then((value) {
+      if (!completer.isCompleted) {
+        completer.complete(value);
+      }
+    });
+
+    onError((error, st) {
+      if (!completer.isCompleted) {
+        completer.completeError(error, st);
+      }
+    });
+
+    return completer.future;
+  }
+
   @protected
   void complete(T value) {
     if (_onCompleteListen != null) {

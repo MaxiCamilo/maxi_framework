@@ -29,3 +29,17 @@ class InvalidProperty implements ErrorData {
 
   const InvalidProperty({required this.message, required this.propertyName});
 }
+
+class InvalidEntity implements ErrorData {
+  @override
+  ErrorCode get errorCode => ErrorCode.invalidValue;
+
+  @override
+  Oration get message => FlexibleOration(message: 'The entity %1 is invalid due to the following properties: %2', textParts: [entityName, invalidProperties.map((p) => p.propertyName).toList()]);
+
+  final List<InvalidProperty> invalidProperties;
+
+  final Oration entityName;
+
+  const InvalidEntity({required this.entityName, required this.invalidProperties});
+}

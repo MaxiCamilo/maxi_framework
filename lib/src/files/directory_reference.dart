@@ -22,6 +22,14 @@ extension DirectoryReferenceExtension on DirectoryReference {
       );
     }
 
+    slashSplit.removeLast(); //<<---- Remove the file name, we only want the folder
+    if (slashSplit.isEmpty) {
+      return NegativeResult.controller(
+        code: ErrorCode.invalidProperty,
+        message: const FixedOration(message: 'The router does not contain a folder'),
+      );
+    }
+
     final newName = slashSplit.removeLast();
     String newRouter = slashSplit.join('/');
 

@@ -80,7 +80,15 @@ mixin FunctionalityMixin<T> implements Functionality<T> {
 
   @override
   Future<Result<T>> separateExecution() {
-    return AsyncExecutor(function: execute).waitResult();
+    final completer = Completer<Result<T>>();
+
+    scheduleMicrotask(() async {
+      final asynExecutor = AsyncExecutor(function: execute, connectToZone: false);
+      final result = await asynExecutor.waitResult();
+      completer.complete(result);
+    });
+
+    return completer.future;
   }
 }
 

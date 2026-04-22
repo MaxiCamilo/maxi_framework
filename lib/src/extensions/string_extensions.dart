@@ -101,4 +101,31 @@ extension StringExtensions on String {
     }
     return buffer.toString();
   }
+
+  String startUpTo({String startTo = '', String endTo = '', bool includeChar = false}) {
+    if (isEmpty) return this;
+    if (this[0] == startTo) return '';
+
+    final buffer = StringBuffer();
+
+    bool init = startTo == '';
+    for (int i = 0; i < length; i++) {
+      if (!init && this[i] == startTo) {
+        init = true;
+        if (includeChar) {
+          buffer.write(this[i]);
+        }
+      } else if (init) {
+        if (endTo.isNotEmpty && this[i] == endTo) {
+          if (includeChar) {
+            buffer.write(this[i]);
+          }
+          break;
+        }
+        buffer.write(this[i]);
+      }
+    }
+
+    return buffer.toString();
+  }
 }

@@ -280,7 +280,8 @@ extension ExtensionResult<T> on Result<T> {
 
     return this;
   }
-}
+
+  }
 
 extension AllObjectResultExtensions on Object {
   Result<T> asResultValue<T>() => ResultValue(content: this as T);
