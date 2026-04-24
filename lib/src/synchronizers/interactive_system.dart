@@ -56,9 +56,9 @@ mixin InteractiveSystem {
     final channel = forkChannelResult.content;
 
     if (filter == null) {
-      return channel.getReceiver().select((x) => x.where((x) => x.value is T).map((e) => e.value as T));
+      return channel.getReceiver().onCorrectSelect((x) => x.where((x) => x.value is T).map((e) => e.value as T));
     } else {
-      return channel.getReceiver().select((x) => x.where((x) => x.value is T).where((x) => filter(x.value as T, x.payload)).map((e) => e.value as T));
+      return channel.getReceiver().onCorrectSelect((x) => x.where((x) => x.value is T).where((x) => filter(x.value as T, x.payload)).map((e) => e.value as T));
     }
   }
 }

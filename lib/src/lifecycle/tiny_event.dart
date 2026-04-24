@@ -69,7 +69,7 @@ class TinyEvent<T> {
   @protected
   void complete(T value) {
     if (_onCompleteListen != null) {
-      for (final func in _onCompleteListen!) {
+      for (final func in _onCompleteListen!.toList(growable: false)) {
         if (func is Function()) {
           func();
         } else if (func is Function(T)) {

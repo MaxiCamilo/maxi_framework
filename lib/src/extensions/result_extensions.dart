@@ -125,7 +125,7 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
-  Result<R> select<R>(R Function(T x) func) {
+  Result<R> onCorrectSelect<R>(R Function(T x) func) {
     if (itsCorrect) {
       final item = func(content);
       return ResultValue<R>(content: item);
@@ -280,8 +280,7 @@ extension ExtensionResult<T> on Result<T> {
 
     return this;
   }
-
-  }
+}
 
 extension AllObjectResultExtensions on Object {
   Result<T> asResultValue<T>() => ResultValue(content: this as T);
@@ -469,7 +468,7 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
   }
 
-  Future<Result<R>> selectFuture<R>(FutureOr<R> Function(T x) func) async {
+  Future<Result<R>> onCorrectFutureSelect<R>(FutureOr<R> Function(T x) func) async {
     final result = await this;
     if (result.itsCorrect) {
       try {

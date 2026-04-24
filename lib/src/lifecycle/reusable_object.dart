@@ -29,5 +29,5 @@ class ReusableObject<T extends Disposable> with DisposableMixin, AsynchronouslyI
   }
 
   @override
-  FutureResult<T> runInternalFuncionality() => initialize().selectFuture((_) => value);
+  FutureResult<T> runInternalFuncionality() => initialize().onCorrectFutureSelect((_) => value);
 }
