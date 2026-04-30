@@ -31,6 +31,7 @@ Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrac
     return ResultValue(content: function());
   } catch (ex, st) {
     appManager.exceptionChannel.sendItem((ex, st));
+    log('Exception caught: $ex', stackTrace: st, name: 'volatileFunction');
     return error(ex, st);
   }
 }
@@ -42,6 +43,7 @@ FutureResult<T> volatileFuture<T>({required Result<T> Function(dynamic ex, Stack
   } catch (ex, st) {
     final resultError = error(ex, st);
     appManager.exceptionChannel.sendItem((ex, st));
+    log('Exception caught: $ex', stackTrace: st, name: 'volatileFuture');
     return resultError;
   }
 }
@@ -599,7 +601,8 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
 extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
   FutureOr<Result<T>> asResCatchException({Result<T> Function(dynamic, StackTrace)? onException}) async {
     try {
-      return ResultValue<T>(content: await this);
+      final value = await this;
+      return ResultValue<T>(content: value);
     } catch (ex, st) {
       if (onException == null) {
         return ExceptionResult<T>(

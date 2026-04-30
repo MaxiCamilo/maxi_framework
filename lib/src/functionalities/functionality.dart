@@ -8,6 +8,10 @@ abstract interface class Functionality<T> {
   Future<Result<T>> separateExecution();
 }
 
+extension FunctionalityExtension<T> on Functionality<T> {
+  AsyncExecutor<T> buildExecutor({required bool connectToZone}) => AsyncExecutor<T>(function: execute, connectToZone: connectToZone);
+}
+
 mixin FunctionalityMixin<T> implements Functionality<T> {
   Oration get functionalityName => FixedOration(message: runtimeType.toString());
 

@@ -153,4 +153,13 @@ class TableResult extends Iterable<Map<String, dynamic>> {
 
     return voidResult;
   }
+
+  List obtainFirstColumn(){
+    if(columnsName.isEmpty) {
+      return [];
+    }
+
+    final firstColumnName = columnsName.first;
+    return _values.map((row) => row[firstColumnName]).toList();
+  }
 }

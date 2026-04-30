@@ -9,6 +9,7 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
   final dynamic host;
   final int port;
   final Duration autoclose;
+  final Duration timeout;
 
   Socket? _nativeSocket;
 
@@ -17,12 +18,12 @@ class SocketChannel with DisposableMixin, AsynchronouslyInitializedMixin, Lifecy
 
   int _clients = 0;
 
-  SocketChannel({required this.host, required this.port, this.autoclose = Duration.zero});
+  SocketChannel({required this.host, required this.port, required this.timeout, this.autoclose = Duration.zero});
 
   @override
   Future<Result<void>> performInitialize() async {
     _clients = 0;
-    final socketResult = await Socket.connect(host, port).asResCatchException(
+    final socketResult = await Socket.connect(host, port, timeout: timeout).asResCatchException(
       onException: (ex, st) => NegativeResult.controller(
         code: ErrorCode.externalFault,
         message: FlexibleOration(message: 'Failed to connect to socket: %1', textParts: [ex]),

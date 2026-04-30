@@ -10,10 +10,14 @@ abstract interface class AsynchronouslyInitialized implements Disposable {
 
 mixin AsynchronouslyInitializedMixin on DisposableMixin implements AsynchronouslyInitialized {
   bool _isInitialized = false;
+  bool _isInitializing = false;
   Mutex? _mutex;
 
   @override
   bool get isInitialized => _isInitialized;
+
+  @protected
+  bool get isInitializing => _isInitializing;
 
   @protected
   Future<Result<void>> performInitialize();
@@ -22,6 +26,7 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
   @nonVirtual
   Future<Result<void>> initialize() {
     _mutex ??= Mutex();
+
     return _mutex!.execute(() async {
       if (_isInitialized) {
         if (_mutex != null && _mutex!.onlyHasOne) {
@@ -29,6 +34,8 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
         }
         return voidResult;
       }
+
+      _isInitializing = true;
 
       try {
         resurrectObject();
@@ -54,6 +61,8 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
         }
 
         return result;
+      } finally {
+        _isInitializing = false;
       }
     });
   }
