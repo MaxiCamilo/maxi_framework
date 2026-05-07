@@ -13,6 +13,19 @@ abstract class Oration {
     return list.selectType<Oration>() ?? defaultOration;
   }
 
+  static String buildAutomaticTokenID({required String typeKey, required String message}) {
+    int hash = 0x811C9DC5;
+    final content = '$typeKey\n$message';
+
+    for (int i = 0; i < content.length; i++) {
+      hash ^= content.codeUnitAt(i);
+      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    }
+
+    final hashText = hash.toUnsigned(32).toRadixString(16).padLeft(8, '0');
+    return '$typeKey.$hashText';
+  }
+
   @override
   bool operator ==(Object other) {
     if (other is! Oration) {
@@ -42,8 +55,7 @@ class FixedOration extends Oration {
   @override
   final String message;
 
-  @override
-  final String tokenID;
+  final String _tokenID;
 
   @override
   final bool translated;
@@ -54,7 +66,10 @@ class FixedOration extends Oration {
   @override
   final String contextText;
 
-  const FixedOration({required this.message, this.tokenID = '', this.translated = false, this.contextText = ''});
+  const FixedOration({required this.message, String tokenID = '', this.translated = false, this.contextText = ''}) : _tokenID = tokenID;
+
+  @override
+  String get tokenID => _tokenID.isNotEmpty ? _tokenID : Oration.buildAutomaticTokenID(typeKey: 't', message: message);
 
   factory FixedOration.clone(Oration oration) => FixedOration(message: oration.message, tokenID: oration.tokenID, contextText: oration.contextText, translated: oration.translated);
 
@@ -65,8 +80,7 @@ class FixedOration extends Oration {
 const emptyOration = FixedOration(message: '');
 
 class FlexibleOration extends Oration {
-  @override
-  final String tokenID;
+  final String _tokenID;
   @override
   final String message;
   @override
@@ -80,7 +94,10 @@ class FlexibleOration extends Oration {
   bool get isNotEmpty => message.isNotEmpty;
   bool get isEmpty => message.isEmpty;
 
-  const FlexibleOration({required this.message, required this.textParts, this.tokenID = '', this.translated = false, this.contextText = ''});
+  const FlexibleOration({required this.message, required this.textParts, String tokenID = '', this.translated = false, this.contextText = ''}) : _tokenID = tokenID;
+
+  @override
+  String get tokenID => _tokenID.isNotEmpty ? _tokenID : Oration.buildAutomaticTokenID(typeKey: 'f', message: message);
 
   factory FlexibleOration.clone(Oration oration) => FlexibleOration(message: oration.message, tokenID: oration.tokenID, contextText: oration.contextText, translated: oration.translated, textParts: oration.textParts);
 
@@ -101,7 +118,11 @@ class FlexibleOration extends Oration {
     String formated = message;
 
     for (int i = 0; i < textParts.length; i++) {
-      formated = formated.replaceAll('%${i + 1}', textParts[i].toString());
+      if (textParts[i] is Oration) {
+        formated = formated.replaceAll('%${i + 1}', (textParts[i] as Oration).translate().toString());
+      } else {
+        formated = formated.replaceAll('%${i + 1}', textParts[i].toString());
+      }
     }
 
     return formated;

@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:collection/collection.dart' show IterableNumberExtension;
 import 'package:maxi_framework/maxi_framework.dart';
+export 'plataform/native_hexadecimal_utilities.dart' if (dart.library.html) 'plataform/web_hexadecimal_utilities.dart';
 
 mixin HexadecimalUtilities {
   static const int uint32MaxValue = 4294967295;
@@ -138,30 +138,6 @@ mixin HexadecimalUtilities {
     buffer.write('--------------------------------------------------------------------------------------------\n\n');
 
     return buffer.toString().asResultValue();
-  }
-
-  static Result<void> addDebugging(String direccion, List<int> datos, [String? titulo]) {
-    titulo ??= '';
-    try {
-      final archvio = File(direccion);
-
-      if (titulo.isNotEmpty) {
-        archvio.writeAsStringSync('$titulo\n', mode: FileMode.append);
-      }
-
-      final generatedData = generateDebugging(datos);
-      if (generatedData.itsFailure) {
-        return generatedData.cast<void>();
-      }
-
-      archvio.writeAsStringSync(generatedData.content, flush: true, mode: FileMode.append);
-      return voidResult;
-    } catch (ex) {
-      return NegativeResult.controller(
-        code: ErrorCode.exception,
-        message: FlexibleOration(message: 'Error writing debug file: %1', textParts: [ex]),
-      );
-    }
   }
 
   static Result<bool> getBit({required int number, required int position}) {

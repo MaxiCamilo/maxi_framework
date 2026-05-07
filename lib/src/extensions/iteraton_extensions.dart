@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:maxi_framework/maxi_framework.dart';
 
 extension IteratonExtensions<T> on Iterable<T> {
@@ -86,6 +88,20 @@ extension IteratonExtensions<T> on Iterable<T> {
     final newList = <R>[];
     for (final element in this) {
       final result = transform(element);
+      if (result.itsFailure) {
+        return result.cast();
+      }
+
+      newList.add(result.content);
+    }
+
+    return newList.asResultValue();
+  }
+
+  FutureResult<List<R>> resultFutureMap<R>(FutureOr<Result<R>> Function(T) transform, {NegativeResult<List<R>> Function(T, Object)? onError}) async {
+    final newList = <R>[];
+    for (final element in this) {
+      final result = await transform(element);
       if (result.itsFailure) {
         return result.cast();
       }

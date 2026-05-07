@@ -182,7 +182,7 @@ final class LifecycleScope with DisposableMixin {
     return voidResult;
   }
 
-  StreamController<T> joinStreamController<T>(StreamController<T> controller) {
+  StreamController<T> joinStreamController<T>(StreamController<T> controller, {void Function(StreamController<T>)? onClose}) {
     if (itWasDiscarded) {
       controller.close();
       return controller;
@@ -195,6 +195,9 @@ final class LifecycleScope with DisposableMixin {
     controller.done.whenComplete(() {
       if (!itWasDiscarded) {
         _unifiedStreamControlers!.remove(controller);
+      }
+      if (onClose != null) {
+        onClose(controller);
       }
     });
 

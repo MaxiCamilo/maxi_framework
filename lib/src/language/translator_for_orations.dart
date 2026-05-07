@@ -2,6 +2,8 @@ import 'package:maxi_framework/maxi_framework.dart';
 
 abstract interface class TranslatorForOrations {
   Oration translateOration({required Oration oration});
+
+  FutureResult<TranslatorForOrations> clone();
 }
 
 class NoOrationTranslator implements TranslatorForOrations {
@@ -11,10 +13,7 @@ class NoOrationTranslator implements TranslatorForOrations {
   Oration translateOration({required Oration oration}) {
     return oration;
   }
+
+  @override
+  FutureResult<TranslatorForOrations> clone() async => const NoOrationTranslator().asResultValue();
 }
-
-
-
-
-
-

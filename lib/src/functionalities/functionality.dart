@@ -115,3 +115,26 @@ abstract class FunctionalityHeart<T> with FunctionalityMixin<T> {
     }
   }
 }
+
+abstract class CachedFunctionality<T> with FunctionalityMixin<T> {
+  late T _cachedValue;
+  bool _hasCache = false;
+
+  FutureOr<Result<T>> runCachableFuncionality();
+
+  @override
+  Future<Result<T>> runInternalFuncionality() async {
+    if (_hasCache) {
+      return ResultValue(content: _cachedValue);
+    }
+
+    final result = await runCachableFuncionality();
+    if (result.itsFailure) {
+      return result;
+    }
+
+    _cachedValue = result.content;
+    _hasCache = true;
+    return result;
+  }
+}
