@@ -14,7 +14,6 @@ class BuildWinUnixSocketClient implements SyncFunctionality<WinUnixSocketClient>
   Result<WinUnixSocketClient> execute() {
     return _WinUnixSocketClient(path: path).asResultValue();
   }
-
 }
 
 class _WinUnixSocketClient extends WinUnixSocketClient with LifecycleHub {

@@ -1,280 +1,277 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:isolate';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
+import 'package:path/path.dart' as p;
 
-import 'winsock_ffi.dart';
+import 'named_pipe_ffi.dart';
 
-/// Tamaño del buffer de lectura por chunk
 const int _kReadBufferSize = 65536;
+const int _kUint64Mask = 0xffffffffffffffff;
 
-/// Mensaje que el isolate de lectura envía al canal principal
 sealed class _ReadMsg {}
 
 class _DataMsg extends _ReadMsg {
-  final Uint8List data;
-  _DataMsg(this.data);
+	final Uint8List data;
+
+	_DataMsg(this.data);
 }
 
 class _ErrorMsg extends _ReadMsg {
-  final String message;
-  final int wsaError;
-  _ErrorMsg(this.message, this.wsaError);
+	final String message;
+	final int win32Error;
+
+	_ErrorMsg(this.message, this.win32Error);
 }
 
 class _CloseMsg extends _ReadMsg {}
 
-/// Parámetros que se pasan al isolate de lectura
 class _ReaderArgs {
-  final int socketHandle;
-  final SendPort sendPort;
-  _ReaderArgs(this.socketHandle, this.sendPort);
-}
+	final int pipeHandle;
+	final SendPort sendPort;
 
-// ─── Isolate de lectura ───────────────────────────────────────────────────────
-// Corre en su propio isolate para no bloquear el event loop de Dart.
-// Usa recv() bloqueante (socket en modo bloqueante para simplificar).
+	_ReaderArgs(this.pipeHandle, this.sendPort);
+}
 
 void _readerIsolate(_ReaderArgs args) {
-  final ws = Winsock.instance;
-  final buf = calloc<Uint8>(_kReadBufferSize);
+	final kernel = NamedPipeKernel.instance;
+	final buffer = calloc<Uint8>(_kReadBufferSize);
+	final bytesRead = calloc<Uint32>();
 
-  try {
-    while (true) {
-      final n = ws.recv(args.socketHandle, buf, _kReadBufferSize, 0);
+	try {
+		while (true) {
+			bytesRead.value = 0;
+			final result = kernel.readFile(args.pipeHandle, buffer, _kReadBufferSize, bytesRead, nullptr);
 
-      if (n == 0) {
-        // Conexión cerrada limpiamente por el peer
-        args.sendPort.send(_CloseMsg());
-        break;
-      }
+			if (result == 0) {
+				final error = kernel.getLastError();
+				if (error == errorBrokenPipe || error == errorNoData) {
+					args.sendPort.send(_CloseMsg());
+				} else {
+					args.sendPort.send(_ErrorMsg('ReadFile() failed', error));
+				}
+				break;
+			}
 
-      if (n == SOCKET_ERROR) {
-        final err = ws.getLastError();
-        args.sendPort.send(_ErrorMsg('recv() failed', err));
-        break;
-      }
+			if (bytesRead.value == 0) {
+				args.sendPort.send(_CloseMsg());
+				break;
+			}
 
-      // Copiar los bytes recibidos a un Uint8List independiente
-      final data = Uint8List(n);
-      for (var i = 0; i < n; i++) {
-        data[i] = buf[i];
-      }
-      args.sendPort.send(_DataMsg(data));
-    }
-  } finally {
-    calloc.free(buf);
-  }
+			args.sendPort.send(_DataMsg(Uint8List.fromList(buffer.asTypedList(bytesRead.value))));
+		}
+	} finally {
+		calloc.free(bytesRead);
+		calloc.free(buffer);
+	}
 }
 
-// ─── NativeWinUnixSocket ────────────────────────────────────────────────────────────
-
-/// Canal bidireccional de bytes (Stream + StreamSink) sobre un Unix socket
-/// nativo en Windows via Winsock2 FFI.
-///
-/// No implementa dart:io Socket — es un wrapper deliberadamente minimal
-/// para conectar a gRPC via viaStreams() o cualquier protocolo custom.
-///
-/// Ejemplo de uso (cliente):
-/// ```dart
-/// final socket = await NativeWinUnixSocket.connect(r'\\.\pipe\mysock');
-/// socket.stream.listen((data) => print('Recibido: $data'));
-/// socket.sink.add(Uint8List.fromList([1, 2, 3]));
-/// await socket.close();
-/// ```
 class NativeWinUnixSocket {
-  final int _handle;
-  final Winsock _ws;
+	final int _handle;
+	final String _pipePath;
+	final NamedPipeKernel _kernel;
 
-  final StreamController<Uint8List> _incomingController;
-  late final _WinUnixSink _sink;
-  Isolate? _readerIsolate;
+	final StreamController<Uint8List> _incomingController;
+	late final _WinUnixSink _sink;
+	Isolate? _readerIsolate;
 
-  NativeWinUnixSocket._(this._handle, this._ws)
-      : _incomingController = StreamController<Uint8List>();
+	NativeWinUnixSocket._(this._handle, this._pipePath, this._kernel) : _incomingController = StreamController<Uint8List>();
 
-  /// Stream de bytes entrantes. Se cierra cuando la conexión se termina.
-  Stream<Uint8List> get stream => _incomingController.stream;
+	Stream<Uint8List> get stream => _incomingController.stream;
 
-  /// Sink para enviar bytes. Llamar a [close()] en el sink equivale a
-  /// cerrar el canal completo.
-  StreamSink<Uint8List> get sink => _sink;
+	StreamSink<Uint8List> get sink => _sink;
 
-  /// Conecta a un Unix socket existente en [path].
-  ///
-  /// En Windows el path tiene la forma: `C:\path\to\socket.sock`
-  /// o usando el namespace de sockets: `\\.\pipe\...` NO — para AF_UNIX
-  /// es un path de filesystem normal, ej: `C:\tmp\grpc.sock`
-  static Future<NativeWinUnixSocket> connect(String path) async {
-    final ws = Winsock.instance;
+	static Future<NativeWinUnixSocket> connect(String path) async {
+		final kernel = NamedPipeKernel.instance;
+		final pipePath = normalizeNamedPipePath(path);
+		final handle = _openClientHandle(kernel, pipePath);
 
-    final handle = ws.socket(AF_UNIX, SOCK_STREAM, 0);
-    if (handle == INVALID_SOCKET) {
-      throw SocketException._fromWsa(ws, 'socket() failed');
-    }
+		final socket = NativeWinUnixSocket._(handle, pipePath, kernel);
+		await socket._startReader();
+		return socket;
+	}
 
-    final addrPtr = calloc<SockaddrUn>();
-    try {
-      _fillSockaddr(addrPtr, path);
-      final result = ws.connect(handle, addrPtr, sizeOf<SockaddrUn>());
-      if (result == SOCKET_ERROR) {
-        ws.closeSocket(handle);
-        throw SocketException._fromWsa(ws, 'connect() failed to $path');
-      }
-    } finally {
-      calloc.free(addrPtr);
-    }
+	static Future<NativeWinUnixSocket> fromHandle(int handle, {String? path}) async {
+		final socket = NativeWinUnixSocket._(handle, path ?? '', NamedPipeKernel.instance);
+		await socket._startReader();
+		return socket;
+	}
 
-    final socket = NativeWinUnixSocket._(handle, ws);
-    await socket._startReader();
-    return socket;
-  }
+	Future<void> _startReader() async {
+		_sink = _WinUnixSink(_handle, _kernel, _incomingController);
 
-  /// Constructor interno — usado por [WinUnixServerSocket] cuando acepta
-  /// una conexión entrante.
-  static Future<NativeWinUnixSocket> fromHandle(int handle) async {
-    final socket = NativeWinUnixSocket._(handle, Winsock.instance);
-    await socket._startReader();
-    return socket;
-  }
+		final receivePort = ReceivePort();
+		_readerIsolate = await Isolate.spawn(_readerIsolate_, _ReaderArgs(_handle, receivePort.sendPort), debugName: 'NativeWinUnixSocket.reader#$_handle');
 
-  Future<void> _startReader() async {
-    _sink = _WinUnixSink(_handle, _ws, _incomingController);
+		receivePort.listen((msg) {
+			switch (msg) {
+				case _DataMsg(:final data):
+					if (!_incomingController.isClosed) {
+						_incomingController.add(data);
+					}
+				case _ErrorMsg(:final message, :final win32Error):
+					if (!_incomingController.isClosed) {
+						_incomingController.addError(WinNamedPipeException('$message on $_pipePath (Win32 error: $win32Error)'));
+						_incomingController.close();
+					}
+					receivePort.close();
+				case _CloseMsg():
+					if (!_incomingController.isClosed) {
+						_incomingController.close();
+					}
+					receivePort.close();
+			}
+		});
+	}
 
-    final receivePort = ReceivePort();
-    _readerIsolate = await Isolate.spawn(
-      _readerIsolate_,
-      _ReaderArgs(_handle, receivePort.sendPort),
-      debugName: 'NativeWinUnixSocket.reader#$_handle',
-    );
-
-    receivePort.listen((msg) {
-      switch (msg) {
-        case _DataMsg(:final data):
-          if (!_incomingController.isClosed) {
-            _incomingController.add(data);
-          }
-        case _ErrorMsg(:final message, :final wsaError):
-          if (!_incomingController.isClosed) {
-            _incomingController.addError(
-              SocketException('$message (WSA error: $wsaError)'),
-            );
-            _incomingController.close();
-          }
-          receivePort.close();
-        case _CloseMsg():
-          if (!_incomingController.isClosed) {
-            _incomingController.close();
-          }
-          receivePort.close();
-      }
-    });
-  }
-
-  /// Cierra la conexión y libera recursos.
-  Future<void> close() async {
-    _ws.shutdown(_handle, SD_BOTH);
-    _ws.closeSocket(_handle);
-    _readerIsolate?.kill(priority: Isolate.immediate);
-    if (!_incomingController.isClosed) {
-      await _incomingController.close();
-    }
-  }
+	Future<void> close() async {
+		_kernel.flushFileBuffers(_handle);
+		_kernel.closeHandle(_handle);
+		_readerIsolate?.kill(priority: Isolate.immediate);
+		if (!_incomingController.isClosed) {
+			await _incomingController.close();
+		}
+	}
 }
 
-// Top-level wrapper para pasar al Isolate.spawn (no puede ser método de instancia)
 void _readerIsolate_(_ReaderArgs args) => _readerIsolate(args);
 
-// ─── Sink ─────────────────────────────────────────────────────────────────────
-
 class _WinUnixSink implements StreamSink<Uint8List> {
-  final int _handle;
-  final Winsock _ws;
-  final StreamController _owner;
+	final int _handle;
+	final NamedPipeKernel _kernel;
+	final StreamController<Uint8List> _owner;
 
-  final Completer<void> _doneCompleter = Completer();
+	final Completer<void> _doneCompleter = Completer<void>();
 
-  _WinUnixSink(this._handle, this._ws, this._owner);
+	_WinUnixSink(this._handle, this._kernel, this._owner);
 
-  @override
-  Future get done => _doneCompleter.future;
+	@override
+	Future<void> get done => _doneCompleter.future;
 
-  @override
-  void add(Uint8List data) {
-    if (data.isEmpty) return;
-    _sendAll(data);
-  }
+	@override
+	void add(Uint8List data) {
+		if (data.isEmpty) {
+			return;
+		}
 
-  @override
-  void addError(Object error, [StackTrace? stackTrace]) {
-    // No hay forma de enviar un error por el socket; lo ignoramos
-    // (el caller debería llamar a close() ante un error)
-  }
+		_writeAll(data);
+	}
 
-  @override
-  Future addStream(Stream<Uint8List> stream) async {
-    await for (final chunk in stream) {
-      add(chunk);
-    }
-  }
+	@override
+	void addError(Object error, [StackTrace? stackTrace]) {}
 
-  @override
-  Future close() async {
-    _ws.shutdown(_handle, SD_BOTH);
-    if (!_doneCompleter.isCompleted) _doneCompleter.complete();
-    if (!_owner.isClosed) await _owner.close();
-  }
+	@override
+	Future<void> addStream(Stream<Uint8List> stream) async {
+		await for (final chunk in stream) {
+			add(chunk);
+		}
+	}
 
-  /// Envía todos los bytes garantizando que send() puede enviar parcialmente.
-  void _sendAll(Uint8List data) {
-    final buf = calloc<Uint8>(data.length);
-    try {
-      for (var i = 0; i < data.length; i++) {
-        buf[i] = data[i];
-      }
+	@override
+	Future<void> close() async {
+		_kernel.flushFileBuffers(_handle);
+		_kernel.closeHandle(_handle);
+		if (!_doneCompleter.isCompleted) {
+			_doneCompleter.complete();
+		}
+		if (!_owner.isClosed) {
+			await _owner.close();
+		}
+	}
 
-      var offset = 0;
-      while (offset < data.length) {
-        final n = _ws.send(_handle, buf + offset, data.length - offset, 0);
-        if (n == SOCKET_ERROR) {
-          final err = _ws.getLastError();
-          throw SocketException('send() failed (WSA error: $err)');
-        }
-        offset += n;
-      }
-    } finally {
-      calloc.free(buf);
-    }
-  }
+	void _writeAll(Uint8List data) {
+		final buffer = calloc<Uint8>(data.length);
+		final bytesWritten = calloc<Uint32>();
+
+		try {
+			buffer.asTypedList(data.length).setAll(0, data);
+
+			var offset = 0;
+			while (offset < data.length) {
+				bytesWritten.value = 0;
+				final result = _kernel.writeFile(_handle, buffer + offset, data.length - offset, bytesWritten, nullptr);
+				if (result == 0) {
+					throw WinNamedPipeException._fromWin32(_kernel, 'WriteFile() failed');
+				}
+				offset += bytesWritten.value;
+			}
+		} finally {
+			calloc.free(bytesWritten);
+			calloc.free(buffer);
+		}
+	}
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+String normalizeNamedPipePath(String path) {
+	if (path.startsWith(r'\\.\pipe\')) {
+		return path;
+	}
 
-/// Rellena una estructura SockaddrUn con el path dado.
-void _fillSockaddr(Pointer<SockaddrUn> ptr, String path) {
-  ptr.ref.sunFamily = AF_UNIX;
-  final bytes = path.codeUnits;
-  if (bytes.length > 107) {
-    throw ArgumentError('Unix socket path demasiado largo (máx 107 chars): $path');
-  }
-  for (var i = 0; i < bytes.length; i++) {
-    ptr.ref.sunPath[i] = bytes[i];
-  }
-  ptr.ref.sunPath[bytes.length] = 0; // null terminator
+	final normalized = path.replaceAll('\\', '/');
+	final basename = p.basename(normalized);
+	final safeBasename = basename.isEmpty ? 'channel' : basename.replaceAll(RegExp(r'[^A-Za-z0-9._-]+'), '_');
+	final suffix = _hashPath(normalized);
+	final trimmedBasename = safeBasename.substring(0, min(safeBasename.length, 32));
+
+	return '${r'\\.\pipe\maxi_framework_'}${suffix}_$trimmedBasename';
 }
 
-// ─── Excepción ────────────────────────────────────────────────────────────────
+int _openClientHandle(NamedPipeKernel kernel, String pipePath) {
+	while (true) {
+		final pipeName = pipePath.toNativeUtf16();
+		try {
+			final handle = kernel.createFile(pipeName, genericRead | genericWrite, 0, nullptr, openExisting, 0, 0);
 
-class SocketException implements Exception {
-  final String message;
-  const SocketException(this.message);
+			if (!kernel.isInvalidHandle(handle)) {
+				return handle;
+			}
 
-  factory SocketException._fromWsa(Winsock ws, String prefix) {
-    return SocketException('$prefix (WSA error: ${ws.getLastError()})');
-  }
+			final error = kernel.getLastError();
+			if (error != errorPipeBusy) {
+				throw WinNamedPipeException('CreateFileW() failed on $pipePath (Win32 error: $error)');
+			}
+		} finally {
+			calloc.free(pipeName);
+		}
 
-  @override
-  String toString() => 'SocketException: $message';
+		final waitName = pipePath.toNativeUtf16();
+		try {
+			final waitResult = kernel.waitNamedPipe(waitName, nmpwaitWaitForever);
+			if (waitResult == 0) {
+				throw WinNamedPipeException._fromWin32(kernel, 'WaitNamedPipeW() failed for $pipePath');
+			}
+		} finally {
+			calloc.free(waitName);
+		}
+	}
+}
+
+String _hashPath(String path) {
+	var hash = 0xcbf29ce484222325;
+	for (final byte in utf8.encode(path)) {
+		hash ^= byte;
+		hash = (hash * 0x100000001b3) & _kUint64Mask;
+	}
+	return hash.toRadixString(16).padLeft(16, '0');
+}
+
+class WinNamedPipeException implements Exception {
+	final String message;
+
+	const WinNamedPipeException(this.message);
+
+	factory WinNamedPipeException._fromWin32(NamedPipeKernel kernel, String prefix) {
+		return WinNamedPipeException('$prefix (Win32 error: ${kernel.getLastError()})');
+	}
+
+	factory WinNamedPipeException.fromWin32(NamedPipeKernel kernel, String prefix) {
+		return WinNamedPipeException._fromWin32(kernel, prefix);
+	}
+
+	@override
+	String toString() => 'WinNamedPipeException: $message';
 }

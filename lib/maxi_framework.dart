@@ -13,4 +13,3 @@ export 'src/validators.dart';
 export 'src/channel.dart';
 export 'src/conditions.dart';
 export 'src/utils.dart';
-export 'src/win_unix_socket.dart';

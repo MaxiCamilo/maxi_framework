@@ -1,14 +1,19 @@
 import 'dart:async';
 import 'dart:developer';
+import 'dart:math' show Random;
 
 import 'package:maxi_framework/maxi_framework.dart';
 
 class DynamicLanguageEngine with DisposableMixin, AsynchronouslyInitializedMixin, LifecycleHub implements TranslatorForOrations {
+  @override
+  final String languagePrefix;
+
   final List<Functionality<List<ReferenceOration>>> loaders;
 
   final _orations = <ReferenceOration>[];
   final _translationKeyCache = <String, String>{};
   StreamController<Oration>? _onUnknownTextTransaction;
+  int? _uniqueID;
 
   Stream<Oration> get onUnknownText async* {
     _onUnknownTextTransaction = lifecycleScope.joinStreamController(StreamController<Oration>.broadcast(), onClose: (_) => _onUnknownTextTransaction = null);
@@ -22,10 +27,24 @@ class DynamicLanguageEngine with DisposableMixin, AsynchronouslyInitializedMixin
     yield* _onUnknownTextTransaction!.stream;
   }
 
-  DynamicLanguageEngine({required this.loaders});
+  @override
+  int get uniqueID {
+    if (_uniqueID != null) {
+      return _uniqueID!;
+    }
+
+    if (isInitialized) {
+      _uniqueID = Object.hashAll([languagePrefix, ..._orations.map((o) => Object.hash(o.tokenID, o.translation))]);
+      return _uniqueID!;
+    } else {
+      return (Random().nextInt(9999999999999)) * -1;
+    }
+  }
+
+  DynamicLanguageEngine({required this.languagePrefix, required this.loaders});
 
   factory DynamicLanguageEngine._internalClone({required DynamicLanguageEngine other}) {
-    final engine = DynamicLanguageEngine(loaders: other.loaders);
+    final engine = DynamicLanguageEngine(languagePrefix: other.languagePrefix, loaders: other.loaders);
     engine._orations.addAll(other._orations);
     engine._translationKeyCache.addAll(other._translationKeyCache);
     return engine;

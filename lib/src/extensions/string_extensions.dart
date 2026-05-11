@@ -30,6 +30,13 @@ extension StringExtensions on String {
     return buffer.toString();
   }
 
+  Iterable<String> splitSize(int chunkSize) sync* {
+    for (int i = 0; i < length; i += chunkSize) {
+      int end = (i + chunkSize < length) ? i + chunkSize : length;
+      yield substring(i, end);
+    }
+  }
+
   String extractInverselyFrom({int? since, int? amount}) {
     final buffer = <String>[];
     since ??= isNotEmpty ? length - 1 : 0;

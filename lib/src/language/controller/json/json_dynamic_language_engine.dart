@@ -9,6 +9,12 @@ class JsonDynamicLanguageEngine with DisposableMixin, AsynchronouslyInitializedM
   String _prefix = '';
   DynamicLanguageEngine? _realEngine;
 
+  @override
+  String get languagePrefix => _realEngine?.languagePrefix ?? _prefix;
+
+  @override
+  int get uniqueID => _realEngine?.uniqueID ?? (_prefix.isEmpty ? 0 : _prefix.hashCode);
+
   JsonDynamicLanguageEngine({required this.directories, required this.initPrefix, required this.maxFileSize});
 
   factory JsonDynamicLanguageEngine._internalClone({required JsonDynamicLanguageEngine other, required DynamicLanguageEngine main}) {
@@ -30,6 +36,7 @@ class JsonDynamicLanguageEngine with DisposableMixin, AsynchronouslyInitializedM
 
     _realEngine = lifecycleScope.joinDisposableObject(
       DynamicLanguageEngine(
+        languagePrefix: _prefix,
         loaders: [LoadJsonPrefix(directories: directories, prefix: _prefix, maxFileSize: maxFileSize)],
       ),
     );

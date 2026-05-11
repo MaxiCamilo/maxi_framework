@@ -9,3 +9,4 @@ export 'extensions/list_int_extensions.dart';
 export 'extensions/channel_extensions.dart';
 export 'extensions/num_extensions.dart';
 export 'extensions/oration_extensions.dart';
+export 'extensions/string_list_iterator_extensions.dart';
