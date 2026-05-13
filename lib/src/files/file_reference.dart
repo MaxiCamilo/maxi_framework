@@ -16,17 +16,24 @@ class FileReference implements DirectoryReference {
       if (router == DirectoryReference.prefixRouteLocal) {
         return '$router/$name';
       } else {
-        return router.isNotEmpty ? '${DirectoryReference.prefixRouteLocal}/$router/$name' : '${DirectoryReference.prefixRouteLocal}/$name';
+        return router.isNotEmpty
+            ? '${DirectoryReference.prefixRouteLocal}/$router/$name'
+            : '${DirectoryReference.prefixRouteLocal}/$name';
       }
     } else {
       return router.isNotEmpty ? '$router/$name' : name;
     }
   }
 
-  factory FileReference.fromFolder({required FolderReference folder, required String name}) {
+  factory FileReference.fromFolder({
+    required FolderReference folder,
+    required String name,
+  }) {
     late String route;
     if (folder.isLocal) {
-      route = folder.completeRoute.replaceAll(DirectoryReference.prefixRouteLocal, '').trim();
+      route = folder.completeRoute
+          .replaceAll(DirectoryReference.prefixRouteLocal, '')
+          .trim();
       if (route.first == '/') {
         route = route.substring(1);
       }
@@ -37,19 +44,27 @@ class FileReference implements DirectoryReference {
     return FileReference(isLocal: folder.isLocal, router: route, name: name);
   }
 
-  static Result<FileReference> interpretRoute({required String route, required bool isLocal}) {
+  static Result<FileReference> interpretRoute({
+    required String route,
+    required bool isLocal,
+  }) {
     route = route.trim().replaceAll('\\', '/');
 
     if (!isLocal && route.startsWith(DirectoryReference.prefixRouteLocal)) {
       isLocal = true;
-      route = route.replaceFirst(DirectoryReference.prefixRouteLocal, '').trim();
+      route = route
+          .replaceFirst(DirectoryReference.prefixRouteLocal, '')
+          .trim();
     }
 
     if (isLocal && route.first == '/') {
       route = route.substring(1).trim();
     }
 
-    if (!isLocal && (((appManager.isLinux || appManager.isMacOS) && route.first != '/')) || (appManager.isWindows && !(route.length > 3 && route[1] == ':' && route[2] == '/'))) {
+    if (!isLocal &&
+        ((((appManager.isLinux || appManager.isMacOS) && route.first != '/')) ||
+            (appManager.isWindows &&
+                !(route.length > 3 && route[1] == ':' && route[2] == '/')))) {
       return interpretRoute(route: route, isLocal: true);
     }
 
@@ -102,7 +117,11 @@ class FileReference implements DirectoryReference {
     return name.split('.').last;
   }
 
-  const FileReference({required this.isLocal, required this.name, required this.router});
+  const FileReference({
+    required this.isLocal,
+    required this.name,
+    required this.router,
+  });
 
   FileOperator buildOperator() => appManager.buildFileOperator(this);
 }
@@ -116,7 +135,10 @@ abstract interface class FileOperator {
   Future<Result<void>> delete();
   Future<Result<int>> obtainSize();
   Future<Result<List<int>>> read({int? maxSize});
-  Future<Result<List<int>>> readPartially({required int from, required int amount});
+  Future<Result<List<int>>> readPartially({
+    required int from,
+    required int amount,
+  });
   Future<Result<String>> readText({Encoding? encoder, int? maxSize});
   Future<Result<void>> write({required List<int> content});
   Future<Result<void>> writeText({required String content, Encoding? encoder});

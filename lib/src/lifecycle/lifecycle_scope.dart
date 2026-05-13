@@ -163,10 +163,11 @@ final class LifecycleScope with DisposableMixin {
     return item;
   }
 
-  void doneFunction(Function funtion) {
+  Function doneFunction(Function funtion) {
     resurrectObject();
     _disponsableFunctions ??= <Function>[];
     _disponsableFunctions!.add(funtion);
+    return funtion;
   }
 
   Result<void> createDependency(Disposable item) {
@@ -249,6 +250,62 @@ final class LifecycleScope with DisposableMixin {
 
     _disponsableManualObjects!.add(func);
     return object;
+  }
+
+  FutureResult<T?> joinFutureObject<T>(Future<T> Function() future, {Function(T)? onDisponse, Function(T)? onDone, Future? ignorantFuturo}) async {
+    if (itWasDiscarded) {
+      return ResultValue(content: null);
+    }
+
+    resurrectObject();
+
+    final completer = Completer<Result<T?>>();
+
+    _disponsableFunctions ??= <Function>[];
+
+    final futureFunc = future()
+        .then((x) {
+          if (itWasDiscarded && onDisponse != null) {
+            onDisponse(x);
+            if (!completer.isCompleted) {
+              completer.complete(CancelationResult());
+            }
+          }
+
+          if (completer.isCompleted) return;
+          completer.complete(ResultValue(content: x));
+        })
+        .onError((ex, st) {
+          if (completer.isCompleted) return;
+          completer.complete(
+            ExceptionResult(
+              exception: ex,
+              stackTrace: st,
+              message: const FixedOration(message: 'An internal error occurred while executing a feature'),
+            ),
+          );
+        });
+
+    final doneFunc = doneFunction(() {
+      if (ignorantFuturo != null) {
+        ignorantFuturo.ignore();
+      }
+
+      futureFunc.ignore();
+
+      if (!completer.isCompleted) {
+        completer.complete(ResultValue(content: null));
+      }
+    });
+
+    final item = await completer.future;
+    _disponsableFunctions?.remove(doneFunc);
+
+    if (item.itsCorrect && !itWasDiscarded && onDone != null) {
+      onDone(item.content as T);
+    }
+
+    return item;
   }
 
   FutureResult<T> waitCompleter<T>(Completer<T> completer) async {

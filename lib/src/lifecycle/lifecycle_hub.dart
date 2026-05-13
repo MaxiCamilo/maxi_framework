@@ -23,4 +23,12 @@ mixin LifecycleHub on Disposable {
     }
     return _lifecycleScope!;
   }
+
+  @internal
+  void disposeLifecycleScope() {
+    if (_lifecycleScope != null) {
+      _lifecycleScope!.dispose();
+      _lifecycleScope = null;
+    }
+  }
 }
