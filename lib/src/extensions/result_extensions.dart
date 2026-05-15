@@ -421,6 +421,7 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
 
   Future<Result<T>> logIfFails({String errorName = ''}) async {
     late final Result<T> item;
+    final current = StackTrace.current;
 
     try {
       item = await this;
@@ -438,7 +439,7 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
       log('''#############################################################
       ${errorName.isEmpty ? item.error.toString() : '[$errorName] ${item.error.toString()}'}
       -----------------------------------------------------
-      ${item is ResultHasStack ? (item as ResultHasStack).stackTrace.toString() : StackTrace.current.toString()}
+      ${item is ResultHasStack ? (item as ResultHasStack).stackTrace.toString() : current.toString()}
       #############################################################''');
     }
 
@@ -546,6 +547,15 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     await function(result as NegativeResult<T>);
 
     return result;
+  }
+
+  Future<Result<T>> volatile({required Oration errorMessage}) async {
+    try {
+      return await this;
+    } catch (ex, st) {
+      appManager.exceptionChannel.sendItem((ex, st));
+      return ExceptionResult<T>(exception: ex, stackTrace: st, message: errorMessage);
+    }
   }
 
   Future<Result<T>> onErrorInsertPartialResult({required T partialResult}) async {

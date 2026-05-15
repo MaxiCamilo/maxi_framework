@@ -78,12 +78,21 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
       performUnitializedObjectDiscard();
     }
 
-    if (_mutex != null && (_mutex!.isBusy && !_mutex!.onlyHasOne)) {
-      final actual = _mutex!;
-      _mutex = null;
-      actual.execute(() async {
-        actual.dispose();
-      });
+    if (_mutex != null && _mutex!.isBusy) {
+      if (_mutex!.onlyHasOne) {
+        final actual = _mutex!;
+        _mutex = null;
+        actual.execute(() async {
+          _isInitialized = false;
+          actual.dispose();
+        });
+      } else {
+        final actual = _mutex!;
+        _mutex = null;
+        actual.execute(() async {
+          actual.dispose();
+        });
+      }
     } else {
       _mutex = null;
     }
@@ -96,4 +105,15 @@ mixin AsynchronouslyInitializedMixin on DisposableMixin implements Asynchronousl
 
   @protected
   void performInitializedObjectDiscard() {}
+
+  FutureResult<void> reset() async {
+    if (isInitialized) {
+      dispose();
+    } else if (isInitializing && _mutex != null) {
+      await _mutex!.executeWhenNotBusy(() async {});
+      dispose();
+    }
+
+    return initialize();
+  }
 }
