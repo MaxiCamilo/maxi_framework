@@ -14,19 +14,28 @@ Result<T> tryFunction<T>(Oration message, T Function() func) {
 
 Result<T> tryCast<T>(Oration message, dynamic value) {
   if (value == null) {
-    return NegativeResult.controller(code: ErrorCode.nullValue, message: message);
+    return NegativeResult.controller(
+      code: ErrorCode.nullValue,
+      message: message,
+    );
   }
   if (value is T) {
     return ResultValue(content: value);
   } else {
     return NegativeResult.controller(
       code: ErrorCode.wrongType,
-      message: FlexibleOration(message: '%1. Expected type: %2, but was %3', textParts: [message, T, value.runtimeType]),
+      message: FlexibleOration(
+        message: '%1. Expected type: %2, but was %3',
+        textParts: [message, T, value.runtimeType],
+      ),
     );
   }
 }
 
-Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required T Function() function}) {
+Result<T> volatileFunction<T>({
+  required Result<T> Function(dynamic ex, StackTrace st) error,
+  required T Function() function,
+}) {
   try {
     return ResultValue(content: function());
   } catch (ex, st) {
@@ -36,7 +45,10 @@ Result<T> volatileFunction<T>({required Result<T> Function(dynamic ex, StackTrac
   }
 }
 
-FutureResult<T> volatileFuture<T>({required Result<T> Function(dynamic ex, StackTrace st) error, required FutureOr<T> Function() function}) async {
+FutureResult<T> volatileFuture<T>({
+  required Result<T> Function(dynamic ex, StackTrace st) error,
+  required FutureOr<T> Function() function,
+}) async {
   try {
     final future = await function();
     return ResultValue(content: future);
@@ -48,11 +60,17 @@ FutureResult<T> volatileFuture<T>({required Result<T> Function(dynamic ex, Stack
   }
 }
 
-FutureResult<T> separateExecution<T>({required FutureOr<Result<T>> Function() function, void Function(AsyncExecutor)? onExecuted}) async {
+FutureResult<T> separateExecution<T>({
+  required FutureOr<Result<T>> Function() function,
+  void Function(AsyncExecutor)? onExecuted,
+}) async {
   final completer = Completer<Result<T>>();
 
   scheduleMicrotask(() async {
-    final asynExecutor = AsyncExecutor(function: function, connectToZone: false);
+    final asynExecutor = AsyncExecutor(
+      function: function,
+      connectToZone: false,
+    );
     if (onExecuted != null) onExecuted(asynExecutor);
     final result = await asynExecutor.waitResult();
     completer.complete(result);
@@ -84,7 +102,10 @@ extension ExtensionResult<T> on Result<T> {
     } else {
       return NegativeResult.controller(
         code: ErrorCode.wrongType,
-        message: FlexibleOration(message: 'It is not possible to convert the result %1 to %2', textParts: [content.runtimeType, I]),
+        message: FlexibleOration(
+          message: 'It is not possible to convert the result %1 to %2',
+          textParts: [content.runtimeType, I],
+        ),
       );
     }
   }
@@ -98,7 +119,11 @@ extension ExtensionResult<T> on Result<T> {
         return ExceptionResult<R>(
           exception: ex,
           stackTrace: st,
-          message: FlexibleOration(message: 'It is not possible to change the result value, as it is not compatible: %1', textParts: [ex]),
+          message: FlexibleOration(
+            message:
+                'It is not possible to change the result value, as it is not compatible: %1',
+            textParts: [ex],
+          ),
         );
       }
     } else {
@@ -106,7 +131,9 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
-  Future<Result<R>> whenFutureCast<I, R>(FutureOr<Result<R>> Function(I x) func) async {
+  Future<Result<R>> whenFutureCast<I, R>(
+    FutureOr<Result<R>> Function(I x) func,
+  ) async {
     if (itsFailure) return cast<R>();
 
     if (content is I) {
@@ -114,7 +141,10 @@ extension ExtensionResult<T> on Result<T> {
     } else {
       return NegativeResult.controller(
         code: ErrorCode.wrongType,
-        message: FlexibleOration(message: 'It is not possible to convert the result %1 to %2', textParts: [content.runtimeType, I]),
+        message: FlexibleOration(
+          message: 'It is not possible to convert the result %1 to %2',
+          textParts: [content.runtimeType, I],
+        ),
       );
     }
   }
@@ -154,7 +184,11 @@ extension ExtensionResult<T> on Result<T> {
         return ExceptionResult<(T, R)>(
           exception: ex,
           stackTrace: st,
-          message: FlexibleOration(message: 'It is not possible to include the result value, as it is not compatible: %1', textParts: [ex]),
+          message: FlexibleOration(
+            message:
+                'It is not possible to include the result value, as it is not compatible: %1',
+            textParts: [ex],
+          ),
         );
       }
     } else {
@@ -174,7 +208,9 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
-  Future<Result<R>> onCorrectFuture<R>(FutureOr<Result<R>> Function(T x) func) async {
+  Future<Result<R>> onCorrectFuture<R>(
+    FutureOr<Result<R>> Function(T x) func,
+  ) async {
     if (itsCorrect) {
       return await func(content);
     } else {
@@ -182,7 +218,9 @@ extension ExtensionResult<T> on Result<T> {
     }
   }
 
-  Future<Result<T>> whenItsCorrect(FutureOr<Result<void>> Function(T x) func) async {
+  Future<Result<T>> whenItsCorrect(
+    FutureOr<Result<void>> Function(T x) func,
+  ) async {
     if (itsCorrect) {
       final result = await func(content);
       return result.itsCorrect ? this : result.cast<T>();
@@ -217,7 +255,10 @@ extension ExtensionResult<T> on Result<T> {
       return NegativeResult(
         error: ControlledFailure(
           errorCode: error.errorCode,
-          message: FlexibleOration(message: '%1. %2', textParts: [message, error.message]),
+          message: FlexibleOration(
+            message: '%1. %2',
+            textParts: [message, error.message],
+          ),
         ),
       );
     } else {
@@ -227,7 +268,10 @@ extension ExtensionResult<T> on Result<T> {
 
   Result<T> onErrorInsertPartialResult({required T partialResult}) {
     if (itsFailure) {
-      return NegativePartialResult<T>(error: error, partialContent: partialResult);
+      return NegativePartialResult<T>(
+        error: error,
+        partialContent: partialResult,
+      );
     } else {
       return this;
     }
@@ -265,7 +309,12 @@ extension ExtensionResult<T> on Result<T> {
       return this;
     }
 
-    tryFunction(const FixedOration(message: 'An error occurred while executing the injected logic'), () => function(content));
+    tryFunction(
+      const FixedOration(
+        message: 'An error occurred while executing the injected logic',
+      ),
+      () => function(content),
+    );
 
     return this;
   }
@@ -293,7 +342,12 @@ extension AllObjectResultExtensions on Object {
     } else {
       return NegativeResult.controller(
         code: ErrorCode.wrongType,
-        message: errorMessage ?? FlexibleOration(message: 'It is not possible to convert the result %1 to %2', textParts: [runtimeType, T]),
+        message:
+            errorMessage ??
+            FlexibleOration(
+              message: 'It is not possible to convert the result %1 to %2',
+              textParts: [runtimeType, T],
+            ),
       );
     }
   }
@@ -308,7 +362,10 @@ extension AllNullabletResultExtensions on Object? {
     }
   }
 
-  Result<T> asResErrorIfItsNull<T>({ErrorCode code = ErrorCode.nullValue, required Oration message}) {
+  Result<T> asResErrorIfItsNull<T>({
+    ErrorCode code = ErrorCode.nullValue,
+    required Oration message,
+  }) {
     if (this == null) {
       return NegativeResult<T>.controller(code: code, message: message);
     } else if (this is Result) {
@@ -334,7 +391,11 @@ extension FutureWithoutResultExtensions<T> on Future<T> {
       return ExceptionResult<T>(
         exception: ex,
         stackTrace: st,
-        message: errorMessage ?? const FixedOration(message: 'Internal error: A chained asynchronous function failed'),
+        message:
+            errorMessage ??
+            const FixedOration(
+              message: 'Internal error: A chained asynchronous function failed',
+            ),
       );
     }
   }
@@ -345,7 +406,10 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     final completer = Completer<Result<T>>();
 
     scheduleMicrotask(() async {
-      final asynExecutor = AsyncExecutor(function: () => this, connectToZone: false);
+      final asynExecutor = AsyncExecutor(
+        function: () => this,
+        connectToZone: false,
+      );
       final result = await asynExecutor.waitResult();
       completer.complete(result);
     });
@@ -370,7 +434,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return result;
   }
 
-  Future<Result<T>> breakIfCanceled({FutureOr<void> Function()? onCancel}) async {
+  Future<Result<T>> breakIfCanceled({
+    FutureOr<void> Function()? onCancel,
+  }) async {
     if (LifeCoordinator.isZoneHeartCanceled) {
       return CancelationResult<T>();
     }
@@ -410,7 +476,11 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
         return NegativeResult(
           error: ControlledFailure(
             errorCode: ErrorCode.wrongType,
-            message: FlexibleOration(message: 'The result was attempted to be converted to %1, but the content is %2 and is incompatible', textParts: [R, T]),
+            message: FlexibleOration(
+              message:
+                  'The result was attempted to be converted to %1, but the content is %2 and is incompatible',
+              textParts: [R, T],
+            ),
           ),
         );
       }
@@ -430,8 +500,15 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
         exception: ex,
         stackTrace: st,
         message: errorName.isEmpty
-            ? const FixedOration(message: 'An exception was thrown while waiting for the future result')
-            : FlexibleOration(message: 'An exception was thrown while waiting for the future result: %1', textParts: [errorName]),
+            ? const FixedOration(
+                message:
+                    'An exception was thrown while waiting for the future result',
+              )
+            : FlexibleOration(
+                message:
+                    'An exception was thrown while waiting for the future result: %1',
+                textParts: [errorName],
+              ),
       );
     }
 
@@ -446,7 +523,12 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return item;
   }
 
-  Future<Result<T>> cancelIn({required Duration timeout, Oration message = const FixedOration(message: 'The function took too long and was canceled')}) {
+  Future<Result<T>> cancelIn({
+    required Duration timeout,
+    Oration message = const FixedOration(
+      message: 'The function took too long and was canceled',
+    ),
+  }) {
     final heart = LifeCoordinator.tryGetZoneHeart;
 
     if (heart == null) {
@@ -456,13 +538,18 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
         timeout,
         onTimeout: () {
           heart.dispose();
-          return NegativeResult.controller(code: ErrorCode.timeout, message: message);
+          return NegativeResult.controller(
+            code: ErrorCode.timeout,
+            message: message,
+          );
         },
       );
     }
   }
 
-  Future<Result<R>> onCorrectFuture<R>(FutureOr<Result<R>> Function(T x) func) async {
+  Future<Result<R>> onCorrectFuture<R>(
+    FutureOr<Result<R>> Function(T x) func,
+  ) async {
     final result = await this;
     if (result.itsCorrect) {
       return await func(result.content);
@@ -471,7 +558,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
   }
 
-  Future<Result<R>> onCorrectFutureSelect<R>(FutureOr<R> Function(T x) func) async {
+  Future<Result<R>> onCorrectFutureSelect<R>(
+    FutureOr<R> Function(T x) func,
+  ) async {
     final result = await this;
     if (result.itsCorrect) {
       try {
@@ -480,7 +569,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
         return ExceptionResult<R>(
           exception: ex,
           stackTrace: st,
-          message: const FixedOration(message: 'Internal error: A chained asynchronous function failed'),
+          message: const FixedOration(
+            message: 'Internal error: A chained asynchronous function failed',
+          ),
         );
       }
     } else {
@@ -488,7 +579,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
   }
 
-  Future<Result<void>> onCorrectFutureVoid(FutureOr<void> Function(T x) func) async {
+  Future<Result<void>> onCorrectFutureVoid(
+    FutureOr<void> Function(T x) func,
+  ) async {
     final result = await this;
     if (result.itsCorrect) {
       await func(result.content);
@@ -498,7 +591,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
   }
 
-  Future<Result<T>> onNegativeFuture(FutureOr<Result<T>> Function(ErrorData error) func) async {
+  Future<Result<T>> onNegativeFuture(
+    FutureOr<Result<T>> Function(ErrorData error) func,
+  ) async {
     final result = await this;
     if (result.itsCorrect) {
       return result;
@@ -507,7 +602,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
   }
 
-  Future<Result<T>> catchNegativeFuture(FutureOr<void> Function(ErrorData error) func) async {
+  Future<Result<T>> catchNegativeFuture(
+    FutureOr<void> Function(ErrorData error) func,
+  ) async {
     final result = await this;
     if (result.itsFailure) {
       try {
@@ -516,7 +613,10 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
         return ExceptionResult<T>(
           exception: ex,
           stackTrace: st,
-          message: const FixedOration(message: 'Internal error: A chained asynchronous function failed while handling an error'),
+          message: const FixedOration(
+            message:
+                'Internal error: A chained asynchronous function failed while handling an error',
+          ),
         );
       }
     }
@@ -524,7 +624,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return result;
   }
 
-  Future<Result<T>> injectLogic(FutureOr<Result<void>> Function(T) function) async {
+  Future<Result<T>> injectLogic(
+    FutureOr<Result<void>> Function(T) function,
+  ) async {
     final result = await this;
     if (result.itsFailure) {
       return result;
@@ -538,13 +640,19 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     return result;
   }
 
-  Future<Result<T>> injectNegativeLogic(FutureOr<void> Function(NegativeResult<T>) function) async {
+  Future<Result<T>> injectNegativeLogic(
+    FutureOr<void> Function(NegativeResult<T>) function,
+  ) async {
     final result = await this;
     if (result.itsCorrect) {
       return result;
     }
 
-    await function(result as NegativeResult<T>);
+    if (result is NegativeResult<T>) {
+      await function(result);
+    } else {
+      await function(NegativeResult<T>(error: result.error));
+    }
 
     return result;
   }
@@ -554,20 +662,31 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
       return await this;
     } catch (ex, st) {
       appManager.exceptionChannel.sendItem((ex, st));
-      return ExceptionResult<T>(exception: ex, stackTrace: st, message: errorMessage);
+      return ExceptionResult<T>(
+        exception: ex,
+        stackTrace: st,
+        message: errorMessage,
+      );
     }
   }
 
-  Future<Result<T>> onErrorInsertPartialResult({required T partialResult}) async {
+  Future<Result<T>> onErrorInsertPartialResult({
+    required T partialResult,
+  }) async {
     final result = await this;
     if (result.itsFailure) {
-      return NegativePartialResult(error: result.error, partialContent: partialResult);
+      return NegativePartialResult(
+        error: result.error,
+        partialContent: partialResult,
+      );
     } else {
       return result;
     }
   }
 
-  Future<Result<T>> tryWhenNegative(FutureOr<Result<T>> Function(NegativeResult<T>) function) async {
+  Future<Result<T>> tryWhenNegative(
+    FutureOr<Result<T>> Function(NegativeResult<T>) function,
+  ) async {
     final result = await this;
     if (result.itsCorrect) {
       return result;
@@ -591,17 +710,28 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
     }
   }
 
-  Future<Result<T>> setTimeoutError({required Duration timeout, Oration message = const FixedOration(message: 'The function took too long and was canceled')}) {
+  Future<Result<T>> setTimeoutError({
+    required Duration timeout,
+    Oration message = const FixedOration(
+      message: 'The function took too long and was canceled',
+    ),
+  }) {
     final heart = LifeCoordinator.tryGetZoneHeart;
 
     if (heart == null) {
-      return separateExecution().setTimeoutError(timeout: timeout, message: message);
+      return separateExecution().setTimeoutError(
+        timeout: timeout,
+        message: message,
+      );
     } else {
       return this.timeout(
         timeout,
         onTimeout: () {
           heart.dispose();
-          return NegativeResult.controller(code: ErrorCode.timeout, message: message);
+          return NegativeResult.controller(
+            code: ErrorCode.timeout,
+            message: message,
+          );
         },
       );
     }
@@ -609,7 +739,9 @@ extension FutureResultExtensions<T> on Future<Result<T>> {
 }
 
 extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
-  FutureOr<Result<T>> asResCatchException({Result<T> Function(dynamic, StackTrace)? onException}) async {
+  FutureOr<Result<T>> asResCatchException({
+    Result<T> Function(dynamic, StackTrace)? onException,
+  }) async {
     try {
       final value = await this;
       return ResultValue<T>(content: value);
@@ -618,7 +750,10 @@ extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
         return ExceptionResult<T>(
           exception: ex,
           stackTrace: st,
-          message: const FixedOration(message: 'Internal error: A chained function failed while processing an exception'),
+          message: const FixedOration(
+            message:
+                'Internal error: A chained function failed while processing an exception',
+          ),
         );
       } else {
         return onException(ex, st);
@@ -626,7 +761,9 @@ extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
     }
   }
 
-  FutureOr<Result<T>> asFutOptResValue({Result<T> Function(dynamic, StackTrace)? onException}) async {
+  FutureOr<Result<T>> asFutOptResValue({
+    Result<T> Function(dynamic, StackTrace)? onException,
+  }) async {
     final value = await this;
     try {
       return ResultValue<T>(content: value);
@@ -635,7 +772,10 @@ extension FutureOrResultWithoutExtensions<T> on FutureOr<T> {
         return ExceptionResult<T>(
           exception: ex,
           stackTrace: st,
-          message: const FixedOration(message: 'Internal error: A chained function failed while processing an exception'),
+          message: const FixedOration(
+            message:
+                'Internal error: A chained function failed while processing an exception',
+          ),
         );
       } else {
         return onException(ex, st);

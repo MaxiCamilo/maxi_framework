@@ -5,6 +5,7 @@ class CheckListMustNotEmpty extends SpecificTypeValidator<Iterable> {
 
   @override
   Result<void> validateWithValue({required Iterable<dynamic> value}) {
+    print(StackTrace.current);
     if (value.isEmpty) {
       return NegativeResult.controller(
         code: ErrorCode.invalidValue,
