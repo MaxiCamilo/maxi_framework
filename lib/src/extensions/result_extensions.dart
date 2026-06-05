@@ -282,6 +282,35 @@ extension ExtensionResult<T> on Result<T> {
 
     return this;
   }
+
+  R onCorrectDirectOrThrow<R>(R Function(T x) func, {Oration? errorMessage}) {
+    if (itsCorrect) {
+      try {
+        return func(content);
+      } catch (ex, st) {
+        appManager.exceptionChannel.sendItem((ex, st));
+        log('''#############################################################
+        FATAL EXCEPTION!! An exception was thrown while executing the onCorrectDirectOrThrow function
+        -----------------------------------------------------
+        ${StackTrace.current.toString()}
+        #############################################################''');
+        throw ExceptionResult(
+          exception: ex,
+          stackTrace: st,
+          message: errorMessage ?? const FixedOration(message: 'Internal error: A chained function failed while processing an exception'),
+        );
+      }
+    } else {
+      appManager.exceptionChannel.sendItem((error, StackTrace.current));
+      log('''#############################################################
+      FATAL EXCEPTION!! The function was expected to return a correct result, but it returned an error result that was not handled!
+      -----------------------------------------------------
+      ${error.toString()}
+      ${StackTrace.current.toString()}
+      #############################################################''');
+      throw this;
+    }
+  }
 }
 
 extension AllObjectResultExtensions on Object {
