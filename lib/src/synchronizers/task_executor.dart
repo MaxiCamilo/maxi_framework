@@ -17,8 +17,36 @@ class TaskExecutor<T> with DisposableMixin implements Channel {
   Result<T>? _result;
   Completer<Result<T>>? _completer;
   Channel? _interactiveChannel;
+  TinyEventManager<TaskExecutor<T>>? _onTaskStart;
+  MaxiTimer? _autoCancelWaitingTimer;
+  MaxiTimer? _timeLimitActivity;
+
+  TinyEvent<TaskExecutor<T>> get onTaskStart {
+    _onTaskStart ??= TinyEventManager<TaskExecutor<T>>();
+    return _onTaskStart!.createEvent(temporal: true);
+  }
 
   TaskExecutor({required this.functionality});
+
+  void closeWhenWaitingExecution({required Duration duration}) {
+    if (_status == TaskExecutorStatus.active) {
+      return;
+    }
+
+    _autoCancelWaitingTimer ??= MaxiTimer();
+    _autoCancelWaitingTimer!.startOrReset(duration: duration, payload: null, onFinish: (_) => dispose());
+  }
+
+  void defineLimitTime(Duration duration) {
+    if (duration == Duration.zero) {
+      _timeLimitActivity?.dispose();
+      _timeLimitActivity = null;
+      return;
+    }
+
+    _timeLimitActivity ??= MaxiTimer();
+    _timeLimitActivity!.startOrReset(duration: duration, payload: null);
+  }
 
   Result<T> get lastResult {
     return switch (_status) {
@@ -50,6 +78,9 @@ class TaskExecutor<T> with DisposableMixin implements Channel {
     }
 
     resurrectObject();
+    _autoCancelWaitingTimer?.cancel();
+    _autoCancelWaitingTimer = null;
+
     _status = TaskExecutorStatus.active;
     _result = null;
 
@@ -61,6 +92,17 @@ class TaskExecutor<T> with DisposableMixin implements Channel {
 
     final newOperator = AsyncExecutor<T>(function: _executeFunctionality, connectToZone: false);
     _executor = newOperator;
+
+    _onTaskStart?.triggerEvent(this);
+
+    if (_timeLimitActivity != null) {
+      _timeLimitActivity!.reset();
+      _timeLimitActivity!.onFinishOrInterrupt.then((isTimeout) {
+        if (isTimeout) {
+          cancel();
+        }
+      });
+    }
 
     newOperator.waitResult(zoneValues: zoneValues).then((result) {
       if (_executor != newOperator) {
@@ -104,6 +146,34 @@ class TaskExecutor<T> with DisposableMixin implements Channel {
     return await _completer!.future;
   }
 
+  FutureResult<T> waitResult({bool resetItsNegative = false}) {
+    if (resetItsNegative && _status == TaskExecutorStatus.failed) {
+      reset();
+    }
+
+    if (_completer == null) {
+      _completer = Completer<Result<T>>();
+    }
+
+    return _completer!.future;
+  }
+
+  void cancel() {
+    _executor?.dispose();
+    dispose();
+    if (_status != TaskExecutorStatus.inactive) {
+      _status = TaskExecutorStatus.failed;
+      _result = NegativeResult.controller(
+        code: ErrorCode.functionalityCancelled,
+        message: const FixedOration(message: 'The task was canceled'),
+      );
+      if (_completer != null && !_completer!.isCompleted) {
+        _completer!.complete(CancelationResult());
+        _completer = null;
+      }
+    }
+  }
+
   @override
   void performObjectDiscard() {
     if (_status == TaskExecutorStatus.active) {
@@ -119,6 +189,14 @@ class TaskExecutor<T> with DisposableMixin implements Channel {
 
     _completer?.complete(CancelationResult());
     _completer = null;
+
+    _onTaskStart?.dispose();
+    _onTaskStart = null;
+
+    _autoCancelWaitingTimer?.cancel();
+    _autoCancelWaitingTimer = null;
+
+    _timeLimitActivity?.dispose();
   }
 
   @override

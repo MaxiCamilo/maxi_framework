@@ -11,8 +11,9 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
   late Duration _duration;
   late T _payload;
 
-  Completer<T>? _completer;
+  Completer<T>? _timeoutCompleter;
   Completer<void>? _cancelCompleter;
+  Completer<bool>? _completerExecution;
 
   @override
   void cancel() => dispose();
@@ -37,9 +38,9 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     return remaining.isNegative ? Duration.zero : remaining;
   }
 
-  Future<T> get onComplete {
-    _completer ??= Completer<T>();
-    return _completer!.future;
+  Future<T> get onTimeout {
+    _timeoutCompleter ??= Completer<T>();
+    return _timeoutCompleter!.future;
   }
 
   Future<void> get onCancel {
@@ -47,7 +48,12 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     return _cancelCompleter!.future;
   }
 
-  Future<bool> startOrReset({required Duration duration, required T payload, void Function(T)? onFinish, void Function(T)? onInterrupt}) {
+  Future<bool> get onFinishOrInterrupt {
+    _completerExecution ??= Completer<bool>();
+    return _completerExecution!.future;
+  }
+
+  Future<bool> startOrReset({required Duration duration, required T payload, void Function(T)? onFinish, void Function(T)? onInterrupt}) async {
     if (_isActive) {
       cancel();
     }
@@ -63,18 +69,18 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     performResurrection();
 
     late final Future<void> onCancel;
-    late final Future<T> onComplete;
+    late final Future<T> onTimeout;
 
     onCancel = this.onCancel.whenComplete(() {
       if (completer.isCompleted) return;
       completer.complete(false);
-      onComplete.ignore();
+      onTimeout.ignore();
       if (onInterrupt != null) {
         onInterrupt(_payload);
       }
     });
 
-    onComplete = this.onComplete.whenComplete(() {
+    onTimeout = this.onTimeout.whenComplete(() {
       if (completer.isCompleted) return;
       completer.complete(true);
       onCancel.ignore();
@@ -83,7 +89,13 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
       }
     });
 
-    return completer.future;
+    final isTimeout = await completer.future;
+
+    if (_completerExecution != null && !_completerExecution!.isCompleted) {
+      _completerExecution!.complete(isTimeout);
+    }
+
+    return isTimeout;
   }
 
   void reset() {
@@ -124,18 +136,18 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     final completer = Completer<T?>();
 
     late final Future<void> onCancel;
-    late final Future<T> onComplete;
+    late final Future<T> onTimeout;
 
     onCancel = this.onCancel.whenComplete(() {
       if (completer.isCompleted) return;
       completer.complete(null);
-      onComplete.ignore();
+      onTimeout.ignore();
       if (onInterrupt != null) {
         onInterrupt(_payload);
       }
     });
 
-    onComplete = this.onComplete.whenComplete(() {
+    onTimeout = this.onTimeout.whenComplete(() {
       if (completer.isCompleted) return;
       completer.complete(_payload);
       onCancel.ignore();
@@ -155,11 +167,11 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
   }
 
   void _onOriginalTimerComplete() {
-    if (_completer != null && !_completer!.isCompleted) {
-      _completer!.complete(_payload);
-      _completer = null;
+    if (_timeoutCompleter != null && !_timeoutCompleter!.isCompleted) {
+      _timeoutCompleter!.complete(_payload);
+      _timeoutCompleter = null;
     }
-    performObjectDiscard();
+    dispose();
   }
 
   @override
@@ -174,8 +186,8 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
     if (_cancelCompleter != null && !_cancelCompleter!.isCompleted) {
       _cancelCompleter!.complete();
     }
-    if (_completer != null && !_completer!.isCompleted) {
-      _completer!.completeError(
+    if (_timeoutCompleter != null && !_timeoutCompleter!.isCompleted) {
+      _timeoutCompleter!.completeError(
         NegativeResult.controller(
           code: ErrorCode.functionalityCancelled,
           message: FixedOration(message: 'The timer was cancelled before completion'),
@@ -183,7 +195,12 @@ class MaxiTimer<T> with DisposableMixin implements Timer {
       );
     }
 
+    if (_completerExecution != null && !_completerExecution!.isCompleted) {
+      _completerExecution!.complete(false);
+    }
+
     _cancelCompleter = null;
-    _completer = null;
+    _timeoutCompleter = null;
+    _completerExecution = null;
   }
 }

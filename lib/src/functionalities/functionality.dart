@@ -137,4 +137,8 @@ abstract class CachedFunctionality<T> with FunctionalityMixin<T> {
     _hasCache = true;
     return result;
   }
+
+  void reset() {
+    _hasCache = false;
+  }
 }

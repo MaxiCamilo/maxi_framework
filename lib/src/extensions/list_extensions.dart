@@ -19,5 +19,16 @@ extension ListExtensions<T> on List<T> {
     return lista;
   }
 
-  
+  List<T> addWhenMismatch(Iterable<T> otherList, bool Function(T,T) compare) {
+    final newList = <T>[];
+
+    for (final item in otherList) {
+      if (!any((x) => compare(x, item))) {
+        newList.add(item);
+      }
+    }
+
+    addAll(newList);
+    return newList;
+  }
 }
