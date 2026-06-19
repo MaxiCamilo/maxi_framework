@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Test Console Pixel",
+      "type": "dart",
+      "request": "launch",
+      "program": "bin/console_pixel_test.dart",
+      "console": "externalTerminal",
+      "env": {
+        "PUB_ENVIRONMENT": "vscode.dart-code"
+      }
+
+    },
+    {
+      "name": "Test Console Braille Pixel",
+      "type": "dart",
+      "request": "launch",
+      "program": "bin/console_pixel_braille_test.dart",
+      "console": "externalTerminal",
+      "env": {
+        "PUB_ENVIRONMENT": "vscode.dart-code"
+      }
+
+    },
+  ]
+}

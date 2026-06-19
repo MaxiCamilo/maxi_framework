@@ -115,6 +115,13 @@ class NegativeResult<T> implements Result<T> {
     return NegativeResult.controller(code: other.error.errorCode, message: message);
   }
 
+  factory NegativeResult.empty() => const NegativeResult(
+    error: ControlledFailure(
+      errorCode: ErrorCode.implementationFailure,
+      message: FixedOration(message: 'Empty result'),
+    ),
+  );
+
   @override
   T get content => throw error;
 
