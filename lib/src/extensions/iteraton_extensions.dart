@@ -126,4 +126,34 @@ extension IteratonExtensions<T> on Iterable<T> {
       yield list;
     }
   }
+
+  double sumBy(num Function(T) function) {
+    double total = 0;
+    for (final item in this) {
+      total += function(item);
+    }
+    return total;
+  }
+}
+
+//
+
+extension IteratonExtensionsResult<T> on Iterable<Result<T>> {
+  Result<List<T>> compartResults() {
+    final newList = <T>[];
+    int i = 1;
+    for (final element in this) {
+      if (element.itsFailure) {
+        return NegativeResult.property(
+          propertyName: FlexibleOration(message: 'Item %1', textParts: [i]),
+          message: element.error.message,
+        );
+      }
+
+      newList.add(element.content);
+      i += 1;
+    }
+
+    return newList.asResultValue();
+  }
 }

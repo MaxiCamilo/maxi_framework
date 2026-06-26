@@ -27,7 +27,7 @@ class AutomaticOllamaTranslation with FunctionalityMixin<List<(String, String)>>
         jsonEncode({
           'model': model,
           'prompt':
-              'Translate to $language. The translation has to be as clear and precise as possible, so analyze the resulting translation carefully.\n\nAvoid translating texts that start with % followed by a number (e.g. %1, %2, %3).\n\n${extraContext.isEmpty ? '' : 'Additional Context: $extraContext\n\n.'} Return ONLY the translated text. This is the text you must translate: "$text"',
+              'Translate to $language. The translation has to be as clear and precise as possible, so analyze the resulting translation carefully.\n\nFractions of texts that begin with a "%" followed by a number represent fixed texts that the system will enter, you must insert them in the translation according to the context.\n\n${extraContext.isEmpty ? '' : 'Additional Context: $extraContext\n\n.'} Return ONLY the translated text. This is the text you must translate: "$text"',
           'stream': false,
           'options': {'temperature': 0.1},
         }),

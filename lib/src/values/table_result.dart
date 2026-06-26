@@ -154,12 +154,30 @@ class TableResult extends Iterable<Map<String, dynamic>> {
     return voidResult;
   }
 
-  List obtainFirstColumn(){
-    if(columnsName.isEmpty) {
+  List obtainFirstColumn() {
+    if (columnsName.isEmpty) {
       return [];
     }
 
     final firstColumnName = columnsName.first;
     return _values.map((row) => row[firstColumnName]).toList();
+  }
+
+  Result<double> obtainFirstNumber() {
+    if (_values.isEmpty || _values.first.isEmpty) {
+      return 0.asResultValue();
+    }
+
+    final value = _values.first.values.first;
+    if (value is num) {
+      return value.toDouble().asResultValue();
+    } else if (value == null) {
+      return 0.asResultValue();
+    } else {
+      return NegativeResult.controller(
+        code: ErrorCode.wrongType,
+        message: FixedOration(message: 'The first value in the table is not a number'),
+      );
+    }
   }
 }

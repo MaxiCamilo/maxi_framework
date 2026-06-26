@@ -104,7 +104,14 @@ class NegativeResult<T> implements Result<T> {
     error: InvalidEntity(entityName: entityName, invalidProperties: invalidProperties),
   );
 
-  factory NegativeResult.changeText({required Oration message, required Result other}) {
+  factory NegativeResult.empty() => const NegativeResult(
+    error: ControlledFailure(
+      errorCode: ErrorCode.implementationFailure,
+      message: FixedOration(message: 'Empty result'),
+    ),
+  );
+
+  factory NegativeResult.otherText({required Oration message, required Result other}) {
     if (other is InvalidEntity) {
       return NegativeResult.entity(entityName: message, invalidProperties: (other as InvalidEntity).invalidProperties);
     }
@@ -115,12 +122,16 @@ class NegativeResult<T> implements Result<T> {
     return NegativeResult.controller(code: other.error.errorCode, message: message);
   }
 
-  factory NegativeResult.empty() => const NegativeResult(
-    error: ControlledFailure(
-      errorCode: ErrorCode.implementationFailure,
-      message: FixedOration(message: 'Empty result'),
-    ),
-  );
+  static NegativeResult changeText({required Oration message, required Result other}) {
+    if (other is InvalidEntity) {
+      return NegativeResult.entity(entityName: message, invalidProperties: (other as InvalidEntity).invalidProperties);
+    }
+    if (other is InvalidProperty) {
+      return NegativeResult.property(propertyName: (other as InvalidProperty).propertyName, message: message);
+    }
+
+    return NegativeResult.controller(code: other.error.errorCode, message: message);
+  }
 
   @override
   T get content => throw error;
@@ -131,45 +142,6 @@ class NegativeResult<T> implements Result<T> {
   @override
   String toString() => 'Error: ${error.message}';
 }
-/*
-class NegativeValidation<T> extends NegativeResult<T> {
-  @override
-  bool get itsCorrect => false;
-
-  @override
-  bool get itsFailure => true;
-
-  @override
-  Type get contentType => T;
-
-  @override
-  bool get hasContent => false;
-
-  final List<ErrorData> failures;
-
-  const NegativeValidation({required super.error, required this.failures});
-
-  factory NegativeValidation.anotherError({required Result other, List<ErrorData> failures = const []}) {
-
-
-    return NegativeValidation(error: other.error, failures: failures);
-  }
-
-  factory NegativeValidation.controller({required ErrorCode code, required Oration message, required List<ErrorData> failures}) => NegativeValidation(
-    error: ControlledFailure(errorCode: code, message: message),
-    failures: failures,
-  );
-
-  factory NegativeValidation.property({required Oration propertyName, required Oration message, required List<ErrorData> failures}) => NegativeValidation(
-    error: InvalidProperty(propertyName: propertyName, message: message),
-    failures: failures,
-  );
-
-  factory NegativeValidation.entity({required Oration entityName, required List<InvalidProperty> invalidProperties, required Oration message}) => NegativeValidation(
-    error: InvalidEntity(entityName: entityName, invalidProperties: invalidProperties),
-    failures: invalidProperties,
-  );
-}*/
 
 class NegativePartialResult<T> extends NegativeResult<T> {
   final T partialContent;
