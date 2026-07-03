@@ -19,6 +19,25 @@ Result<void> defineAppManager(ApplicationManager appManager) {
   return voidResult;
 }
 
+FutureResult<void> initAppManager() async {
+  final current = appManager;
+  if (current is Initializable) {
+    final initResult = (current as Initializable).initialize();
+    if (initResult.itsFailure) {
+      return initResult;
+    }
+  }
+
+  if (current is AsynchronouslyInitialized) {
+    final initResult = await (current as AsynchronouslyInitialized).initialize();
+    if (initResult.itsFailure) {
+      return initResult;
+    }
+  }
+
+  return voidResult;
+}
+
 abstract interface class ApplicationManager {
   bool get isDebug;
 
