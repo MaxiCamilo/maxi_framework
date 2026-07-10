@@ -17,24 +17,40 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
   LifeCoordinator? _actualHeart;
   Future? _onHeartDispose;
   MasterChannel<InteractiveSystemValue, InteractiveSystemValue>? _valueChannel;
+  Map<Object?, Object?> _extraValueZone;
 
   @override
   bool get isActive => _isActive;
 
-  AsyncExecutor({required FutureOr<Result<T>> Function() function, void Function()? onCancel, Oration? exceptionMessage, void Function(LifeCoordinator)? onHeartCreated, bool connectToZone = true})
-    : _function = function,
-      _onCancel = onCancel,
-      _onHeartCreated = onHeartCreated,
-      _exceptionMessage = exceptionMessage ?? _errorText,
-      _connectToZone = connectToZone;
+  AsyncExecutor({
+    required FutureOr<Result<T>> Function() function,
+    void Function()? onCancel,
+    Oration? exceptionMessage,
+    void Function(LifeCoordinator)? onHeartCreated,
+    bool connectToZone = true,
+    Map<Object?, Object?> extraValueZone = const {},
+  }) : _function = function,
+       _onCancel = onCancel,
+       _onHeartCreated = onHeartCreated,
+       _exceptionMessage = exceptionMessage ?? _errorText,
+       _connectToZone = connectToZone,
+       _extraValueZone = extraValueZone;
 
-  factory AsyncExecutor.function({required FutureOr<T> Function() function, void Function()? onCancel, Oration? exceptionMessage, void Function(LifeCoordinator)? onHeartCreated, bool connectToZone = true}) {
+  factory AsyncExecutor.function({
+    required FutureOr<T> Function() function,
+    void Function()? onCancel,
+    Oration? exceptionMessage,
+    void Function(LifeCoordinator)? onHeartCreated,
+    bool connectToZone = true,
+    Map<Object?, Object?> extraValueZone = const {},
+  }) {
     return AsyncExecutor(
       function: () async => ResultValue(content: await function()),
       onCancel: onCancel,
       onHeartCreated: onHeartCreated,
       exceptionMessage: exceptionMessage,
       connectToZone: connectToZone,
+      extraValueZone: extraValueZone,
     );
   }
 
@@ -94,6 +110,7 @@ class AsyncExecutor<T> with DisposableMixin implements AsyncResult<T> {
     final child = Zone.current.fork(
       zoneValues: {
         ...zoneValues,
+        ..._extraValueZone,
         LifeCoordinator.kZoneHeart: heart,
         LifeCoordinator.kRootZoneHeart: LifeCoordinator.hasRootZoneHeart ? LifeCoordinator.rootZoneHeart : heart,
         AsyncResult.kAsyncExecutor: this,

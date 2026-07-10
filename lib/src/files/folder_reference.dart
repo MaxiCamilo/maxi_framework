@@ -42,6 +42,7 @@ class FolderReference implements DirectoryReference {
   factory FolderReference.pulledFolder({required FolderReference parent, required String route}) {
     return FolderReference.interpretRoute(route: '${parent.completeRoute}/$route', isLocal: parent.isLocal).content;
   }
+  
 
   static Result<FolderReference> interpretRoute({required String route, required bool isLocal}) {
     route = route.trim().replaceAll('\\', '/');

@@ -9,7 +9,7 @@ abstract interface class Functionality<T> {
 }
 
 extension FunctionalityExtension<T> on Functionality<T> {
-  AsyncExecutor<T> buildExecutor({required bool connectToZone}) => AsyncExecutor<T>(function: execute, connectToZone: connectToZone);
+  AsyncExecutor<T> buildExecutor({required bool connectToZone, Map<Object?, Object?> zoneValues = const {}}) => AsyncExecutor<T>(function: execute, connectToZone: connectToZone, extraValueZone: zoneValues);
 }
 
 mixin FunctionalityMixin<T> implements Functionality<T> {
